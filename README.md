@@ -19,12 +19,12 @@ Source: https://developer.nytimes.com/
 
 ### Sentiment Labeled Financial Headlines
 
-Almost 5,000 financial headlines are used. Data available in the data folder (data/sentiment_news/all-data.csv).
+Almost 5,000 financial headlines were downloaded from Kaggle. Data available in the data folder (data/sentiment_news/all-data.csv).
 
 Source: https://www.kaggle.com/ankurzing/sentiment-analysis-for-financial-news
 
 ### Stock prices
 
-Stock price information of all supported stocks from Tiingo. Only the largest 500 companies of NYSE and NASDAQ are used (although all NYSE and NASDAQ historical stocks were collected).
+Stock price information of all supported stocks from Tiingo API. Only the largest 500 companies of NYSE and NASDAQ are used (although all NYSE and NASDAQ historical stocks were collected).
 
 Source: https://www.tiingo.com/
