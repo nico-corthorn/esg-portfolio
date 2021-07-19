@@ -23,7 +23,7 @@ Almost 5,000 financial headlines were downloaded from Kaggle. Data available in 
 
 Source: https://www.kaggle.com/ankurzing/sentiment-analysis-for-financial-news
 
-### Stock prices
+### Stock Prices
 
 Stock price information of all supported stocks from Tiingo API. Only the largest 500 companies of NYSE and NASDAQ are used (although all NYSE and NASDAQ historical stocks were collected).
 
