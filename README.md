@@ -13,7 +13,7 @@ Information is managed in AWS RDS.
 
 ### New York Times
 
-More than 80,000 articles were collected from the New York Times API. Articles starting from 2001. Only business section was considered. Collected the headline, snippet, subjects, and organizations of each article. Data available in data/nyt.csv.
+More than 80,000 articles were collected from the New York Times API. Articles starting from 2001. Only business section was considered. Collected the headline, snippet, subjects, and organizations of each article. Data available in data/nyt.csv. Code used available in code/NYT_scraper.ipynb.
 
 Source: https://developer.nytimes.com/
 
@@ -25,6 +25,6 @@ Source: https://www.kaggle.com/ankurzing/sentiment-analysis-for-financial-news
 
 ### Stock Prices
 
-Stock price information of all supported stocks from Tiingo API. Only the largest 500 companies of NYSE and NASDAQ are used (although all NYSE and NASDAQ historical stocks were collected).
+Stock price information of all supported stocks from Tiingo API. Only the largest 500 companies of NYSE and NASDAQ are used (although all NYSE and NASDAQ historical stocks were collected). Code used available in code folder (main, scraper, managerSQL, utilities).
 
 Source: https://www.tiingo.com/
