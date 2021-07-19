@@ -1,6 +1,6 @@
 # Introduction
 
-Springboard Machine Learning Engineering capstone project.
+Springboard Machine Learning Engineering capstone project.  
 NLP application that will:
 - Classify articles into topics using both supervised and unsupervised learning. ESG topics are used for the supervised approach. New York Times historical articles data is used. 
 - Determine the sentiment of the article. A labeled Kagle data set is used to train this model. Almost 5,000 financial headlines are used.
