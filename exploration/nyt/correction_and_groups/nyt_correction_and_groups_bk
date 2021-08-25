@@ -1,0 +1,31 @@
+
+import os
+import pandas as pd
+import numpy as np
+
+# Run once
+current_dir = os.getcwd()
+par_dir = os.path.dirname(current_dir)
+os.chdir(par_dir)
+
+# Read data
+nyt = pd.read_csv('data/nyt/nyt.csv', encoding='utf-8')
+
+# Exploration of strange string
+snippets_xa0 = nyt.loc[nyt.snippet.str.contains(r'\xa0').fillna(False)].snippet
+snippets_xa0[snippets_xa0.index[4]]
+nyt.loc[snippets_xa0.index[1], 'headline']
+nyt.loc[snippets_xa0.index[1], 'web_url']
+nyt.snippet.str.replace(' \xa0', '. ')[19]
+
+# Replace strange string
+nyt['snippet'] = nyt.snippet.str.replace(' \xa0', '. ')
+
+
+np.random.seed(0)
+nyt['group'] = np.random.randint(1, 80, nyt.shape[0])
+nyt.to_csv('data/nyt/nyt_groups.csv', index=False)
+group = 1
+nyt.loc[nyt.group == group].to_csv(f'data/nyt/nyt_group{group}.csv', index=False)
+group = 2
+nyt.loc[nyt.group == group].to_csv(f'data/nyt/nyt_group{group}.csv', index=False)
