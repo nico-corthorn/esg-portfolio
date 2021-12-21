@@ -38,12 +38,14 @@ def remove_stopwords(text, tokenizer, stopword_list, is_lower_case=False):
 
 
 def preprocess_texts(texts,
+                     bool_lower=True,
                      bool_expand_contractions=True,
                      bool_remove_accents=True,
                      bool_remove_special_characters=True,
                      bool_lemmatize=True,
                      bool_remove_stop_words=True,
-                     stopword_list=None):
+                     stopword_list=None,
+                     verbose=True):
 
     """
         Input:
@@ -55,20 +57,35 @@ def preprocess_texts(texts,
 
     texts_clean = texts.copy()
 
+    if bool_lower:
+        if verbose:
+            print("Lowering case")
+        texts_clean = texts_clean.str.lower()
+
     if bool_expand_contractions:
+        if verbose:
+            print("Fixing contractions")
         texts_clean = texts_clean.map(lambda x: contractions.fix(x))
 
     if bool_remove_accents:
+        if verbose:
+            print("Removing accents")
         texts_clean = texts_clean.map(lambda x: remove_accented_chars(x))
 
     if bool_remove_special_characters:
+        if verbose:
+            print("Removing special characters")
         texts_clean = texts_clean.map(lambda x: remove_special_characters(x, remove_digits=True))
 
     if bool_lemmatize:
+        if verbose:
+            print("Lemmatizing")
         nlp = en_core_web_lg.load()
         texts_clean = texts_clean.map(lambda x: lemmatize_text(x, nlp))
 
     if bool_remove_stop_words:
+        if verbose:
+            print("Removing stop words")
         tokenizer = ToktokTokenizer()
 
         if stopword_list is None:
