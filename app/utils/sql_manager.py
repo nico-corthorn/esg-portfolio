@@ -1,4 +1,5 @@
 
+import os
 import json
 import pandas as pd
 import psycopg2
@@ -6,13 +7,18 @@ from sqlalchemy import create_engine
 
 
 def get_config_db():
-    with open('config_db.json') as json_file:
+    with open('utils/config_db.json') as json_file:
         config_db = json.load(json_file)
     return config_db
 
 
 class ManagerSQL:
-    def __init__(self, sql_params):
+
+    def __init__(self, sql_params=None):
+
+        # Basic db parameters
+        if sql_params is None:
+            sql_params = get_config_db()
         db_name = sql_params['db_name']
         user = sql_params['user']
         password = sql_params['password']
