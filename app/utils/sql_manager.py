@@ -7,8 +7,12 @@ from sqlalchemy import create_engine
 
 
 def get_config_db():
-    with open('utils/config_db.json') as json_file:
-        config_db = json.load(json_file)
+    config_db = {}
+    config_db['db_name'] = os.environ.get('POSTGRES_DB_NAME')
+    config_db['user'] = os.environ.get('POSTGRES_USER')
+    config_db['password'] = os.environ.get('POSTGRES_PASSWORD')
+    config_db['host'] = os.environ.get('POSTGRES_HOST')
+    config_db['port'] = os.environ.get('POSTGRES_PORT')
     return config_db
 
 
