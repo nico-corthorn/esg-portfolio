@@ -1,4 +1,4 @@
-
+import os
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -10,7 +10,7 @@ import zipfile
 import io
 import sys
 import traceback
-from ..utils.utilities import compute, compute_loop, filter_elements_config
+from ..utils.utils import compute, compute_loop, filter_elements_config
 from ..utils import sql_manager
 
 
@@ -19,11 +19,7 @@ from ..utils import sql_manager
 
 class Scraper:
     def __init__(self):
-        with open('config/config_scraper.json') as json_file:
-            self.config_scraper = json.load(json_file)
-        with open('config/config_db.json') as json_file:
-            config_db = json.load(json_file)
-        self.sql_manager = sql_manager.ManagerSQL(config_db)
+        self.sql_manager = sql_manager.ManagerSQL()
         self.today = pd.datetime.today().date()
         self.last_business_date = (self.today - BDay(1)).date()
         self.min_date = pd.to_datetime('1960-01-01').date()
@@ -73,7 +69,7 @@ class TiingoScraper(Scraper):
         else:
             min_date = self.min_date
         try:
-            api_key = self.config_scraper['tiingo']['API Key']
+            api_key = os.environ.get('TIINGO_API_KEY')
             data = pdr.get_data_tiingo(ticker, min_date, self.last_business_date, api_key=api_key)
             # adjClose adjHigh adjLow adjOpen adjVolume close divCash high low open splitFactor volume
             data = data.reset_index()
