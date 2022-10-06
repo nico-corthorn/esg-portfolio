@@ -97,7 +97,10 @@ class ManagerSQL:
             df.loc[[df.index[i]], :].to_sql(name=table, con=self.con, if_exists='append', index=False)
 
     def upload_df_chunks(self, table, df, chunk_size=100):
-        """ Uploads data frame to table. Appends information. """
+        """ 
+            Uploads data frame to table. Appends information. 
+            DataFrame index must have been reseted previously.
+        """
         ind = list(df.index)
         chunks = [ind[i:i + chunk_size] for i in range(0, len(ind), chunk_size)]
         for chunk in chunks:
