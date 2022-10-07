@@ -8,7 +8,7 @@ This NLP application will:
 
 # Data
 
-Information is managed in AWS RDS.
+Information stored in AWS RDS.
 
 ### New York Times
 
@@ -24,6 +24,6 @@ Source: https://www.kaggle.com/ankurzing/sentiment-analysis-for-financial-news
 
 ### Stock Prices
 
-Stock price information of all supported stocks from Tiingo API. Only the largest 500 companies of NYSE and NASDAQ are used (although all NYSE and NASDAQ historical stocks were collected). Code used available in code folder (main, scraper, managerSQL, utilities).
+Stock price information of all supported stocks from Alpha Vantage API.
 
 Source: https://www.tiingo.com/
