@@ -39,7 +39,7 @@ class AlphaScraper():
         
         dte = date_input.strftime("%Y-%m-%d")
         
-        url = f'https://www.alphavantage.co/query?function=LISTING_STATUS&date={dte}&state=delisted&apikey={key}'
+        url = f'https://www.alphavantage.co/query?function=LISTING_STATUS&date={dte}&state=delisted&apikey={self.api_key}'
 
         with requests.Session() as s:
             download = s.get(url)
@@ -53,19 +53,19 @@ class AlphaScraper():
 
     def download_all_listings(self, date_input):
         
-        # download active
+        # Download active
         data_active = self.download_active_listings()
         
-        # download delisted
-        data_delist = self.download_delisted(date_input, self.api_key)
+        # Download delisted
+        data_delist = self.download_delisted(date_input)
         
-        # concatenate
+        # Concatenate
         data = data_active.append(data_delist).reset_index(drop=True)
 
-        # rename columns
+        # Rename columns
         data.columns = [utils.camel_to_snake(col) for col in data.columns]
         
-        # fix missing values in delisting_date column
+        # Fix missing values in delisting_date column
         data.loc[data.delisting_date == 'null', 'delisting_date'] = None
         
         return data
@@ -147,28 +147,47 @@ class AlphaScraper():
                         assets_alpha_table='assets_alpha', 
                         assets_alpha_clean_table='assets_alpha_clean'):
 
-        # date
+        # Date
         if date_input is None:
             date_input = datetime.now()
         
-        # download listing status
+        # Download listing status
         data = self.download_all_listings(date_input)
         
-        # dedup listings
+        # Dedup listings
         data_clean = self.clean_listings(data)
         
-        # assets table
+        # Assets table
         assets = self.get_assets_table(data_clean)
         
-        # update assets_table
+        # Update assets_table
         self.sql.clean_table(assets_alpha_table)
         self.sql.upload_df_chunks(assets_alpha_table, data)
         
-        # update assets_table_clean
+        # Update assets_table_clean
         self.sql.clean_table(assets_alpha_clean_table)
         self.sql.upload_df_chunks(assets_alpha_clean_table, data_clean)
         
-        # update assets
+        # Update assets
         self.sql.clean_table(assets_table)
         self.sql.upload_df_chunks(assets_table, assets)
 
+
+    def get_prices(symbol, key):
+        
+        url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol={symbol}&apikey={key}'
+        
+        # Hit API
+        r = requests.get(url)
+        prices_json = r.json()
+
+        # Transform into formatted pandas DataFrame
+        df = pd.DataFrame(prices_json['Time Series (Daily)']).T
+        col_rename = {col: col[3:].replace(' ', '_') for col in df.columns}
+        df.rename(columns=col_rename, inplace=True)
+        df = df.reset_index().rename(columns={'index': 'date'})
+        df['symbol'] = symbol
+        cols = list(df.columns[-1:]) + list(df.columns[:-1])
+        df = df[cols]
+        
+        return df
