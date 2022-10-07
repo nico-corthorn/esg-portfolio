@@ -26,4 +26,4 @@ Source: https://www.kaggle.com/ankurzing/sentiment-analysis-for-financial-news
 
 Stock price information of all supported stocks from Alpha Vantage API.
 
-Source: https://www.tiingo.com/
+Source: https://www.alphavantage.co/documentation/
