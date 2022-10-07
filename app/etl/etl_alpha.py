@@ -8,6 +8,8 @@ from pandas.tseries.offsets import BDay
 
 from utils import sql_manager, utils
 
+URL_BASE = 'https://www.alphavantage.co/query?function='
+
 class AlphaScraper():
 
     def __init__(self):
@@ -20,7 +22,7 @@ class AlphaScraper():
 
     def download_active_listings(self):
         
-        url = f'https://www.alphavantage.co/query?function=LISTING_STATUS&apikey=demo'
+        url = f'{URL_BASE}LISTING_STATUS&apikey=demo'
         
         with requests.Session() as s:
             download = s.get(url)
@@ -32,14 +34,14 @@ class AlphaScraper():
         return data
 
 
-    def download_delisted(self, date_input, key):
+    def download_delisted(self, date_input):
         """
             Date is datetime.datetime or datetime.date
         """
         
         dte = date_input.strftime("%Y-%m-%d")
         
-        url = f'https://www.alphavantage.co/query?function=LISTING_STATUS&date={dte}&state=delisted&apikey={self.api_key}'
+        url = f'{URL_BASE}LISTING_STATUS&date={dte}&state=delisted&apikey={self.api_key}'
 
         with requests.Session() as s:
             download = s.get(url)
@@ -171,21 +173,48 @@ class AlphaScraper():
         self.sql.upload_df_chunks(assets_table, assets)
 
 
-    def get_prices(symbol, key):
-        
-        url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol={symbol}&apikey={key}'
-        
-        # Hit API
-        r = requests.get(url)
-        prices_json = r.json()
+    def get_adjusted_prices(self, symbol, size='full'):
 
-        # Transform into formatted pandas DataFrame
-        df = pd.DataFrame(prices_json['Time Series (Daily)']).T
-        col_rename = {col: col[3:].replace(' ', '_') for col in df.columns}
-        df.rename(columns=col_rename, inplace=True)
-        df = df.reset_index().rename(columns={'index': 'date'})
-        df['symbol'] = symbol
-        cols = list(df.columns[-1:]) + list(df.columns[:-1])
-        df = df[cols]
-        
-        return df
+        url = f'{URL_BASE}TIME_SERIES_DAILY_ADJUSTED&symbol={symbol}&outputsize={size}&apikey={self.api_key}'
+
+        try:
+            
+            # Hit API
+            r = requests.get(url)
+            prices_json = r.json()
+
+            # Transform into formatted pandas DataFrame
+            if 'Time Series (Daily)' in prices_json:
+
+                prices = pd.DataFrame(prices_json['Time Series (Daily)'], dtype='float').T
+
+                # Remove enumeration at beginning of columns (e.g. "1. open")
+                col_rename = {col: col[3:].replace(' ', '_') for col in prices.columns}
+                prices.rename(columns=col_rename, inplace=True)
+
+                # Date as a column
+                prices = prices.reset_index().rename(columns={'index': 'date'})
+
+                # Include symbol and put as first column
+                prices['symbol'] = symbol
+                cols = list(prices.columns[-1:]) + list(prices.columns[:-1])
+                prices = prices[cols]
+
+                # Change to appropriate variable types
+                dtypes = {
+                    'symbol': 'object',
+                    'date': 'datetime64[ns]',
+                }
+                prices = prices.astype(dtypes)
+
+                # Compute percentage return
+                prices = prices.sort_values(['symbol', 'date']).reset_index(drop=True)
+                prices['return'] = prices.groupby('symbol').adjusted_close.pct_change()
+
+                return prices
+            
+            raise ValueError(f"Json file did not have 'Time Series (Daily)' as key. File content is:\n {prices_json}")
+
+        except Exception as e:
+            print(f'Download failed for {symbol}. \nurl: {url}')
+            print(e)
