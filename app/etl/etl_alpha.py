@@ -8,6 +8,8 @@ from pandas.tseries.offsets import BDay
 
 from utils import sql_manager, utils
 
+URL_BASE = 'https://www.alphavantage.co/query?function='
+
 class AlphaScraper():
 
     def __init__(self):
@@ -20,7 +22,7 @@ class AlphaScraper():
 
     def download_active_listings(self):
         
-        url = f'https://www.alphavantage.co/query?function=LISTING_STATUS&apikey=demo'
+        url = f'{URL_BASE}LISTING_STATUS&apikey=demo'
         
         with requests.Session() as s:
             download = s.get(url)
@@ -32,14 +34,14 @@ class AlphaScraper():
         return data
 
 
-    def download_delisted(self, date_input, key):
+    def download_delisted(self, date_input):
         """
             Date is datetime.datetime or datetime.date
         """
         
         dte = date_input.strftime("%Y-%m-%d")
         
-        url = f'https://www.alphavantage.co/query?function=LISTING_STATUS&date={dte}&state=delisted&apikey={key}'
+        url = f'{URL_BASE}LISTING_STATUS&date={dte}&state=delisted&apikey={self.api_key}'
 
         with requests.Session() as s:
             download = s.get(url)
@@ -53,19 +55,19 @@ class AlphaScraper():
 
     def download_all_listings(self, date_input):
         
-        # download active
+        # Download active
         data_active = self.download_active_listings()
         
-        # download delisted
-        data_delist = self.download_delisted(date_input, self.api_key)
+        # Download delisted
+        data_delist = self.download_delisted(date_input)
         
-        # concatenate
+        # Concatenate
         data = data_active.append(data_delist).reset_index(drop=True)
 
-        # rename columns
+        # Rename columns
         data.columns = [utils.camel_to_snake(col) for col in data.columns]
         
-        # fix missing values in delisting_date column
+        # Fix missing values in delisting_date column
         data.loc[data.delisting_date == 'null', 'delisting_date'] = None
         
         return data
@@ -145,28 +147,74 @@ class AlphaScraper():
                         assets_alpha_table='assets_alpha', 
                         assets_alpha_clean_table='assets_alpha_clean'):
 
-        # date
+        # Date
         if date_input is None:
             date_input = datetime.now()
         
-        # download listing status
+        # Download listing status
         data = self.download_all_listings(date_input)
         
-        # dedup listings
+        # Dedup listings
         data_clean = self.clean_listings(data)
         
-        # assets table
+        # Assets table
         assets = self.get_assets_table(data_clean)
         
-        # update assets_table
+        # Update assets_table
         self.sql.clean_table(assets_alpha_table)
         self.sql.upload_df_chunks(assets_alpha_table, data)
         
-        # update assets_table_clean
+        # Update assets_table_clean
         self.sql.clean_table(assets_alpha_clean_table)
         self.sql.upload_df_chunks(assets_alpha_clean_table, data_clean)
         
-        # update assets
+        # Update assets
         self.sql.clean_table(assets_table)
         self.sql.upload_df_chunks(assets_table, assets)
 
+
+    def get_adjusted_prices(self, symbol, size='full'):
+
+        url = f'{URL_BASE}TIME_SERIES_DAILY_ADJUSTED&symbol={symbol}&outputsize={size}&apikey={self.api_key}'
+
+        try:
+            
+            # Hit API
+            r = requests.get(url)
+            prices_json = r.json()
+
+            # Transform into formatted pandas DataFrame
+            if 'Time Series (Daily)' in prices_json:
+
+                prices = pd.DataFrame(prices_json['Time Series (Daily)'], dtype='float').T
+
+                # Remove enumeration at beginning of columns (e.g. "1. open")
+                col_rename = {col: col[3:].replace(' ', '_') for col in prices.columns}
+                prices.rename(columns=col_rename, inplace=True)
+
+                # Date as a column
+                prices = prices.reset_index().rename(columns={'index': 'date'})
+
+                # Include symbol and put as first column
+                prices['symbol'] = symbol
+                cols = list(prices.columns[-1:]) + list(prices.columns[:-1])
+                prices = prices[cols]
+
+                # Change to appropriate variable types
+                dtypes = {
+                    'symbol': 'object',
+                    'date': 'datetime64[ns]',
+                }
+                prices = prices.astype(dtypes)
+
+                # Compute percentage return
+                prices = prices.sort_values(['symbol', 'date']).reset_index(drop=True)
+                prices['return'] = prices.groupby('symbol').adjusted_close.pct_change()
+
+                return prices
+            
+            raise ValueError(f"Json file did not have 'Time Series (Daily)' as key. File content is:\n {prices_json}")
+
+        except Exception as e:
+            print(f'Download failed for {symbol}. \nurl: {url}')
+            print(e)
