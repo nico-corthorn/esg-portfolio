@@ -97,11 +97,9 @@ class AlphaScraper():
         # Symbol-name-asset_type rows with no duplicates
         data_no_dup = data.drop_duplicates(subset=col_keys, keep=False)
         
-        # Rest has duplicates (FIX)
-        data_dup = data.loc[
-            ~(data.symbol.isin(data_no_dup.symbol)
-            & data.name.isin(data_no_dup.name)
-            & data.asset_type.isin(data_no_dup.asset_type))]
+        # Rest has duplicates
+        ind_dup = [ind for ind in data.index if ind not in data_no_dup.index]
+        data_dup = data.iloc[ind_dup]
 
         # Since Active listings are first we use those for delisting_date
         data_dup_first = data_dup.drop_duplicates(subset=col_keys, keep='first')
