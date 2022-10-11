@@ -155,22 +155,22 @@ class AlphaScraper():
         data = self.download_all_listings(date_input)
         
         # Dedup listings
-        data_clean = self.clean_listings(data)
+        #data_clean = self.clean_listings(data)
         
         # Assets table
-        assets = self.get_assets_table(data_clean)
+        #assets = self.get_assets_table(data_clean)
         
         # Update assets_table
         self.sql.clean_table(assets_alpha_table)
         self.sql.upload_df_chunks(assets_alpha_table, data)
         
         # Update assets_table_clean
-        self.sql.clean_table(assets_alpha_clean_table)
-        self.sql.upload_df_chunks(assets_alpha_clean_table, data_clean)
+        #self.sql.clean_table(assets_alpha_clean_table)
+        #self.sql.upload_df_chunks(assets_alpha_clean_table, data_clean)
         
         # Update assets
-        self.sql.clean_table(assets_table)
-        self.sql.upload_df_chunks(assets_table, assets)
+        #self.sql.clean_table(assets_table)
+        #self.sql.upload_df_chunks(assets_table, assets)
 
 
     def get_adjusted_prices(self, symbol, size='full'):
@@ -208,8 +208,8 @@ class AlphaScraper():
                 prices = prices.astype(dtypes)
 
                 # Compute percentage return
-                prices = prices.sort_values(['symbol', 'date']).reset_index(drop=True)
-                prices['return'] = prices.groupby('symbol').adjusted_close.pct_change()
+                #prices = prices.sort_values(['symbol', 'date']).reset_index(drop=True)
+                #prices['return'] = prices.groupby('symbol').adjusted_close.pct_change()
 
                 return prices
             
@@ -218,3 +218,36 @@ class AlphaScraper():
         except Exception as e:
             print(f'Download failed for {symbol}. \nurl: {url}')
             print(e)
+
+
+    def update_prices(prices, table_prices='prices_alpha'):
+        
+        prices_update = prices.copy()
+        
+        # Symbol
+        symbols = prices.symbol.unique()
+        assert len(symbols) == 1, f"Only one symbol per update. symbols={symbols}"
+        symbol = symbols[0]
+        
+        # Add or update lud column
+        prices['lud'] = datetime.now()
+
+        # Get last date of symbol in database
+        query = f"""
+        select max(date) 
+        from prices_alpha 
+        where symbol = '{symbol}'
+        """
+        date_df = sql.select_query(query)
+        dte = date_df.iloc[0, 0]
+
+        # Filter data from API to start from last date of symbol in db
+        if dte is not None:
+            prices_update = prices_update.loc[prices['date'].dt.date >= dte]
+
+        # Upload to database
+        if prices_update.shape[0] > 1:
+            print(f'Uploading {prices_update.shape[0]} rows for {symbol}')
+            sql.upload_df_chunks(table_prices, prices)
+        else:
+            print("Database already up to date.")
