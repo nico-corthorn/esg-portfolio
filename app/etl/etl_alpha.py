@@ -206,6 +206,7 @@ class AlphaScraper():
                     'date': 'datetime64[ns]',
                 }
                 prices = prices.astype(dtypes)
+                prices['date'] = prices.date.dt.date
 
                 # Compute percentage return
                 #prices = prices.sort_values(['symbol', 'date']).reset_index(drop=True)
@@ -220,34 +221,80 @@ class AlphaScraper():
             print(e)
 
 
-    def update_prices(prices, table_prices='prices_alpha'):
-        
-        prices_update = prices.copy()
-        
+    def get_db_prices(self, symbol):
+        query = f"select * from prices_alpha where symbol = '{symbol}'"
+        db_prices = self.sql.select_query(query)
+        return db_prices
+    
+
+    def find_date_to_upload_from(self, api_prices, db_prices):
+        """
+            Returns date from which api_prices should be uploaded (inclusive)
+            It is also the date up to which db dates are valid and should be kept
+            If output is None, no filter should be applied over api_prices
+            and all registers of the symbol should be deleted from the prices table
+        """
+
+        api_dates_df = api_prices[['date', 'lud']].rename(columns={'lud': 'lud_api'})
+        db_dates_df = db_prices[['date', 'lud']].rename(columns={'lud': 'lud_db'})
+        dates_df = api_dates_df.merge(
+            db_dates_df,
+            how='outer',
+            left_on='date',
+            right_on='date'
+        )
+        db_dates_missing = dates_df[dates_df.lud_db.isnull()].date
+        if len(db_dates_missing) == 0:
+            return (False, None)
+        db_dates_valid = db_prices.loc[db_prices.date < db_dates_missing.min()]
+        if db_dates_valid.shape[0] > 0:
+            return (True, db_dates_valid.date.max())
+        return (True, None)
+
+
+    def update_prices(self, api_prices_input, table_prices='prices_alpha'):
+
+        api_prices = api_prices_input.copy()
+
         # Symbol
-        symbols = prices.symbol.unique()
+        symbols = api_prices.symbol.unique()
         assert len(symbols) == 1, f"Only one symbol per update. symbols={symbols}"
         symbol = symbols[0]
-        
-        # Add or update lud column
-        prices['lud'] = datetime.now()
 
-        # Get last date of symbol in database
-        query = f"""
-        select max(date) 
-        from prices_alpha 
-        where symbol = '{symbol}'
-        """
-        date_df = sql.select_query(query)
-        dte = date_df.iloc[0, 0]
+        # Get database prices
+        db_prices = self.get_db_prices(symbol)
+
+        # Add or update lud column
+        api_prices['lud'] = datetime.now()
+
+        # Get last valid date of symbol in database (inclusive)
+        # Which is also the same from which api_prices should be uploaded (inclusive)
+        upload, date_upload = self.find_date_to_upload_from(api_prices, db_prices)
 
         # Filter data from API to start from last date of symbol in db
-        if dte is not None:
-            prices_update = prices_update.loc[prices['date'].dt.date >= dte]
+        if upload:
 
-        # Upload to database
-        if prices_update.shape[0] > 1:
-            print(f'Uploading {prices_update.shape[0]} rows for {symbol}')
-            sql.upload_df_chunks(table_prices, prices)
+            if date_upload is None:
+                # Clean
+                query = f"delete from {table_prices} where symbol = '{symbol}'"
+                self.sql.query(query)
+            else:
+                # Clean
+                query = f"""
+                delete from {table_prices}
+                where
+                    symbol = '{symbol}' and 
+                    date > '{date_upload.strftime('%Y-%m-%d')}'
+                """
+                self.sql.query(query)
+                
+                # Filter api_prices
+                api_prices = api_prices.loc[api_prices['date'] >= date_upload]
+
+            # Upload to database
+            assert api_prices.shape[0] > 1, "Cannot upload only one date."            
+            print(f'Uploading {api_prices.shape[0]} dates for {symbol} from {date_upload}')
+            self.sql.upload_df_chunks(table_prices, api_prices)
+
         else:
             print("Database already up to date.")
