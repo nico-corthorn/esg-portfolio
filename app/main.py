@@ -11,10 +11,12 @@ def main():
     #assets = alpha.get_assets_table(data_clean)
     #print(assets)
     size = 'compact'
-    prices_amzn = alpha.get_adjusted_prices('AMZN', size)
-    prices_msft = alpha.get_adjusted_prices('MSFT', size)
-    alpha.update_prices(prices_amzn)
-    alpha.update_prices(prices_msft)
+    alpha.update_prices_symbol('AMZN', size)
+    #prices_msft = alpha.get_adjusted_prices('MSFT', size)
+    #prices_aapl = alpha.get_adjusted_prices('AAPL', size)
+    #updated_amzn = alpha.update_prices(prices_amzn, size)
+    #updated_msft = alpha.update_prices(prices_msft, size)
+    #updated_aapl = alpha.update_prices(prices_aapl, size)
     print("Done!")
 
 
