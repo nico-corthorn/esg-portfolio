@@ -208,6 +208,9 @@ class AlphaScraper():
                 prices = prices.astype(dtypes)
                 prices['date'] = prices.date.dt.date
 
+                # Last update date
+                prices['lud'] = datetime.now()                
+
                 # Compute percentage return
                 #prices = prices.sort_values(['symbol', 'date']).reset_index(drop=True)
                 #prices['return'] = prices.groupby('symbol').adjusted_close.pct_change()
@@ -235,6 +238,10 @@ class AlphaScraper():
             and all registers of the symbol should be deleted from the prices table
         """
 
+        should_upload = False
+        date_upload = None
+
+        # Join API and database dates available
         api_dates_df = api_prices[['date', 'lud']].rename(columns={'lud': 'lud_api'})
         db_dates_df = db_prices[['date', 'lud']].rename(columns={'lud': 'lud_db'})
         dates_df = api_dates_df.merge(
@@ -243,58 +250,133 @@ class AlphaScraper():
             left_on='date',
             right_on='date'
         )
+
+        # Get dates missing in db
         db_dates_missing = dates_df[dates_df.lud_db.isnull()].date
-        if len(db_dates_missing) == 0:
-            return (False, None)
-        db_dates_valid = db_prices.loc[db_prices.date < db_dates_missing.min()]
-        if db_dates_valid.shape[0] > 0:
-            return (True, db_dates_valid.date.max())
-        return (True, None)
+
+        if len(db_dates_missing) != 0:
+        
+            # Get dates in db that are potentially valid
+            db_dates_valid = db_prices.loc[db_prices.date < db_dates_missing.min()]
+
+            if db_dates_valid.shape[0] > 0:
+                # Database has data for dates that are valid if no split or dividend
+                # has ocurred since. To be validated later.
+                should_upload = True
+                date_upload = db_dates_valid.date.max()
+
+            else:
+                # Database has no useful dates. It should be updated entirely.
+                should_upload = True
+                date_upload = None
+        
+        else:
+            # No dates missing. Database up to date
+            should_upload = False
+            date_upload = None
+        
+        return should_upload, date_upload
 
 
-    def update_prices(self, api_prices_input, table_prices='prices_alpha'):
 
+
+    def get_api_prices_to_upload(self, api_prices_input, db_prices, size):
+
+        # Check and copy api_prices_input
+        assert api_prices_input.shape[0] > 0
         api_prices = api_prices_input.copy()
 
         # Symbol
-        symbols = api_prices.symbol.unique()
-        assert len(symbols) == 1, f"Only one symbol per update. symbols={symbols}"
-        symbol = symbols[0]
+        api_symbols = api_prices.symbol.unique()
+        db_symbols = db_prices.symbol.unique()
+        assert len(api_symbols) == 1, f"Only one symbol in api_prices per update. symbols={api_symbols}"
+        assert len(db_symbols) <= 1, f"At most one symbol in db_prices per update. symbols={db_symbols}"
+        if len(db_symbols) == 1:
+            assert db_symbols == api_symbols
+
+        # Get last valid date of symbol in database (inclusive)
+        # Which is also the same from which api_prices should be uploaded (inclusive)
+        should_upload, date_upload = self.find_date_to_upload_from(api_prices, db_prices)
+
+        if not should_upload:
+
+            # There is nothing to upload
+            api_prices = None
+            
+            # Returning False, None
+            return should_upload, api_prices
+
+        if date_upload is None:
+
+            # There are no valid dates in the db for the symbol.
+            # Any rows related to the symbol should be erased
+            # and the full history should be uploaded
+
+            if size != 'full':
+                # If the API data collected is not the full history
+                # return False, meaning the upload has to be repeated
+                # with the full history
+                api_prices = None
+                # Returning True, None
+                return should_upload, api_prices
+
+        else:
+            # There is data in the db that is potentially useful
+
+            # Check if prices and coefficients are the same in date_upload
+            cols_equal = ['symbol', 'date', 'close', 'adjusted_close', 'dividend_amount', 'split_coefficient']
+            db_cond = db_prices.date == date_upload
+            api_cond = api_prices.date == date_upload
+            db_prices_row = db_prices.loc[db_cond, cols_equal].reset_index(drop=True)
+            api_prices_row = api_prices.loc[api_cond, cols_equal].reset_index(drop=True)
+            
+            if db_prices_row.equals(api_prices_row):
+                # There is perfect continuation of the prices and coefficients
+                # I.e. there was no split or dividend that would require
+                # a retrospective adjustment of prices
+                api_prices = api_prices.loc[api_prices['date'] > date_upload]
+            
+            else:
+                # There was a split or dividend
+                # All history should be downloaded
+                if size != 'full':
+                    api_prices = None
+                    # Returning True, None
+                    return should_upload, api_prices
+
+        return should_upload, api_prices
+
+
+    def update_prices_symbol(self, symbol, size, table_prices='prices_alpha'):
+
+        # Get API prices        
+        api_prices = self.get_adjusted_prices(symbol, size)
 
         # Get database prices
         db_prices = self.get_db_prices(symbol)
 
-        # Add or update lud column
-        api_prices['lud'] = datetime.now()
+        # Check whether and what to upload
+        should_upload, api_prices = \
+            self.get_api_prices_to_upload(api_prices, db_prices, size)
 
-        # Get last valid date of symbol in database (inclusive)
-        # Which is also the same from which api_prices should be uploaded (inclusive)
-        upload, date_upload = self.find_date_to_upload_from(api_prices, db_prices)
+        if should_upload:
 
-        # Filter data from API to start from last date of symbol in db
-        if upload:
+            if api_prices is None:
+                
+                # DB information has to be deleted and full history uploaded
 
-            if date_upload is None:
-                # Clean
+                # Clean symbol rows
                 query = f"delete from {table_prices} where symbol = '{symbol}'"
                 self.sql.query(query)
-            else:
-                # Clean
-                query = f"""
-                delete from {table_prices}
-                where
-                    symbol = '{symbol}' and 
-                    date > '{date_upload.strftime('%Y-%m-%d')}'
-                """
-                self.sql.query(query)
-                
-                # Filter api_prices
-                api_prices = api_prices.loc[api_prices['date'] >= date_upload]
 
+                # Fetch full history
+                api_prices = self.get_adjusted_prices(symbol, size='full')
+            
             # Upload to database
-            assert api_prices.shape[0] > 1, "Cannot upload only one date."            
-            print(f'Uploading {api_prices.shape[0]} dates for {symbol} from {date_upload}')
+            assert api_prices.shape[0] > 0
+            print(f'Uploading {api_prices.shape[0]} dates for {symbol}')
             self.sql.upload_df_chunks(table_prices, api_prices)
 
         else:
+
             print("Database already up to date.")
