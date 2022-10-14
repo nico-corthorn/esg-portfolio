@@ -10,6 +10,7 @@ from utils import sql_manager, utils
 
 URL_BASE = 'https://www.alphavantage.co/query?function='
 
+
 class AlphaScraper():
 
     def __init__(self):
@@ -298,13 +299,16 @@ class AlphaScraper():
         # Which is also the same from which api_prices should be uploaded (inclusive)
         should_upload, date_upload = self.find_date_to_upload_from(api_prices, db_prices)
 
+        # clean_db_table is True if the table has to be cleaned of symbol data
+        clean_db_table = False
+
         if not should_upload:
 
             # There is nothing to upload
             api_prices = None
             
             # Returning False, None
-            return should_upload, api_prices
+            return should_upload, clean_db_table, api_prices
 
         if date_upload is None:
 
@@ -312,13 +316,15 @@ class AlphaScraper():
             # Any rows related to the symbol should be erased
             # and the full history should be uploaded
 
+            clean_db_table = True
+
             if size != 'full':
                 # If the API data collected is not the full history
                 # return False, meaning the upload has to be repeated
                 # with the full history
                 api_prices = None
-                # Returning True, None
-                return should_upload, api_prices
+            
+            return should_upload, clean_db_table, api_prices
 
         else:
             # There is data in the db that is potentially useful
@@ -339,39 +345,42 @@ class AlphaScraper():
             else:
                 # There was a split or dividend
                 # All history should be downloaded
+
+                clean_db_table = True
+
                 if size != 'full':
                     api_prices = None
-                    # Returning True, None
-                    return should_upload, api_prices
+                
+                return should_upload, clean_db_table, api_prices
 
-        return should_upload, api_prices
+        return should_upload, clean_db_table, api_prices
 
 
     def update_prices_symbol(self, symbol, size, table_prices='prices_alpha'):
 
-        # Get API prices        
+        # Get API prices
         api_prices = self.get_adjusted_prices(symbol, size)
 
         # Get database prices
         db_prices = self.get_db_prices(symbol)
 
         # Check whether and what to upload
-        should_upload, api_prices = \
+        should_upload, clean_db_table, api_prices = \
             self.get_api_prices_to_upload(api_prices, db_prices, size)
 
         if should_upload:
 
             if api_prices is None:
-                
-                # DB information has to be deleted and full history uploaded
+                # Fetch full history
+                api_prices = self.get_adjusted_prices(symbol, size='full')
+            
+            if clean_db_table:
+                # DB information has to be deleted for symbol
 
                 # Clean symbol rows
                 query = f"delete from {table_prices} where symbol = '{symbol}'"
                 self.sql.query(query)
 
-                # Fetch full history
-                api_prices = self.get_adjusted_prices(symbol, size='full')
-            
             # Upload to database
             assert api_prices.shape[0] > 0
             print(f'Uploading {api_prices.shape[0]} dates for {symbol}')
