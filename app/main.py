@@ -11,7 +11,7 @@ def main():
     #assets = alpha.get_assets_table(data_clean)
     #print(assets)
     size = 'compact'
-    alpha.update_prices_symbol('AMZN', size)
+    alpha.update_prices_symbol('MSFT', size)
     #prices_msft = alpha.get_adjusted_prices('MSFT', size)
     #prices_aapl = alpha.get_adjusted_prices('AAPL', size)
     #updated_amzn = alpha.update_prices(prices_amzn, size)
