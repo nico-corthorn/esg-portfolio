@@ -21,7 +21,14 @@ class AlphaScraper():
         self.api_key = os.environ.get('ALPHAVANTAGE_API_KEY')
 
 
-    def download_active_listings(self):
+    def download_active_listings(self) -> pd.DataFrame:
+        """Hit AlphaVantage API to get active listings
+
+            Returns
+            -------
+            pd.DataFrame
+                DataFrame with listings that are active
+        """
         
         url = f'{URL_BASE}LISTING_STATUS&apikey=demo'
         
@@ -35,9 +42,19 @@ class AlphaScraper():
         return data
 
 
-    def download_delisted(self, date_input):
-        """
-            Date is datetime.datetime or datetime.date
+    def download_delisted(self, date_input: datetime.datetime) -> pd.DataFrame:
+        """Hit AlphaVantage API to get delisted assets
+
+                Parameters
+                ----------
+                date_input : datetime.datetime
+                    Date at which the delisting snapshot is taken
+
+                Returns
+                -------
+                pd.DataFrame
+                    DataFrame with listings that were delisted as of given date
+
         """
         
         dte = date_input.strftime("%Y-%m-%d")
