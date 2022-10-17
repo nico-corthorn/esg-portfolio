@@ -5,6 +5,7 @@ import requests
 import pandas as pd
 from datetime import datetime
 from pandas.tseries.offsets import BDay
+from pytz import timezone
 
 from utils import sql_manager, utils
 
@@ -16,12 +17,125 @@ class AlphaScraper():
     def __init__(self):
         self.sql = sql_manager.ManagerSQL()
         self.today = datetime.now().date()
-        self.last_business_date = (self.today - BDay(1)).date()
-        self.min_date = pd.to_datetime('1960-01-01').date()
+        self.last_business_date = self._get_last_business_date()
         self.api_key = os.environ.get('ALPHAVANTAGE_API_KEY')
 
 
-    def download_active_listings(self) -> pd.DataFrame:
+    def _get_last_business_date(self):
+
+        # Check whether it is a business day
+        is_business_day = (self.today - BDay(1) + BDay(1)).date() == self.today
+
+        # Check whether stock market is closed in USA
+        time_eastern = datetime.now(timezone('EST'))
+        is_after_4_pm = time_eastern.hour >= 16
+
+        # If weekday and after 4 pm ET
+        if is_business_day and is_after_4_pm:
+            return self.today
+
+        # If weekend, holiday or before 4 pm then return last business day
+        return (self.today - BDay(1)).date()
+
+
+    def refresh_listings(self,
+                        date_input=None, 
+                        assets_alpha_table='assets_alpha'):
+
+        # Date
+        if date_input is None:
+            date_input = datetime.now()
+        
+        # Download listing status
+        data = self.download_all_listings(date_input)
+                
+        # Update assets_table
+        self.sql.clean_table(assets_alpha_table)
+        self.sql.upload_df_chunks(assets_alpha_table, data)
+
+
+    def refresh_all_prices(
+        self, 
+        size:str = 'full',
+        validate:bool = False, 
+        asset_types:list = ['Stock']
+        ):
+
+        # Get available assets from db
+        assets = self.get_assets_to_refresh(asset_types, validate)
+
+        # Update db prices in parallel
+        args = [(symbol, size) for symbol in assets.symbol]
+        print(args)
+        fun = lambda p: self.update_prices_symbol(*p)
+        #utils.compute(args, fun, max_workers=5)
+        utils.compute_loop(args, fun)
+
+
+    def get_assets_to_refresh(self, asset_types, validate):
+        """ Returns DataFrame with unique tickers from asset_table
+        """ 
+
+        # Get full assets table
+        query = f"select * from assets_alpha"
+        assets = self.sql.select_query(query)
+
+        # Filter and drop duplicates
+        assets = (
+            assets
+            .loc[assets.asset_type.isin(asset_types)]
+            .sort_values(by=['symbol', 'status', 'delisting_date'])
+            .drop_duplicates(subset='symbol', keep='first')
+            .reset_index(drop=True)
+        )
+
+        if not validate:
+
+            # Get last available date in db prices table
+            query = """
+            select symbol, max(date) max_date
+            from prices_alpha
+            group by symbol
+            """
+            assets_max_date = self.sql.select_query(query)
+
+            assets = assets.merge(
+                assets_max_date,
+                how = 'left',
+                left_on='symbol',
+                right_on='symbol'
+            )
+
+            # if active, last date in db (max_date) == self.last_business_date
+            cond_last_bd = assets.max_date == self.last_business_date
+            cond_delisted = assets.max_date >= assets.delisting_date
+            cond_updated = cond_last_bd | cond_delisted
+            assets = assets.loc[~cond_updated]
+        
+        return assets
+
+
+    def download_all_listings(self, date_input):
+        
+        # Download active
+        data_active = self._download_active_listings()
+        
+        # Download delisted
+        data_delist = self._download_delisted(date_input)
+        
+        # Concatenate
+        data = data_active.append(data_delist).reset_index(drop=True)
+
+        # Rename columns
+        data.columns = [utils.camel_to_snake(col) for col in data.columns]
+        
+        # Fix missing values in delisting_date column
+        data.loc[data.delisting_date == 'null', 'delisting_date'] = None
+        
+        return data
+
+
+    def _download_active_listings(self) -> pd.DataFrame:
         """Hit AlphaVantage API to get active listings
 
             Returns
@@ -42,12 +156,12 @@ class AlphaScraper():
         return data
 
 
-    def download_delisted(self, date_input: datetime.datetime) -> pd.DataFrame:
+    def _download_delisted(self, date_input: datetime) -> pd.DataFrame:
         """Hit AlphaVantage API to get delisted assets
 
                 Parameters
                 ----------
-                date_input : datetime.datetime
+                date_input : datetime
                     Date at which the delisting snapshot is taken
 
                 Returns
@@ -71,127 +185,59 @@ class AlphaScraper():
         return data
     
 
-    def download_all_listings(self, date_input):
-        
-        # Download active
-        data_active = self.download_active_listings()
-        
-        # Download delisted
-        data_delist = self.download_delisted(date_input)
-        
-        # Concatenate
-        data = data_active.append(data_delist).reset_index(drop=True)
+    def update_prices_symbol(self, symbol, size, table_prices='prices_alpha'):
 
-        # Rename columns
-        data.columns = [utils.camel_to_snake(col) for col in data.columns]
-        
-        # Fix missing values in delisting_date column
-        data.loc[data.delisting_date == 'null', 'delisting_date'] = None
-        
-        return data
-    
+        print(f'Updating prices for {symbol}')
 
-    def clean_listings(self, data):
-        """
-        data is assumed to have Active listings first and then Delisted.
-        
-        Listings downloaded from Alpha Vantage can be duplicated when using symbol, name and asset_type
-        as keys.
-        
-        Cases identified
-            1. Change of exchange
-            2. Delisted and then re-listed
-            3. Another company took the symbol
-            4. Ilogical
-        
-        If symbol, name and asset_type are the same, then the first IPO date 
-        and last delisting (or none if applicable) will be kept. Exchange is ignored.
-        If name is different it is assumed that a different company took the symbol.
-        If asset_type is different then it is assumed linked to a different asset.
-        """
-        
-        # Keys and columns
-        col_keys = ['symbol', 'name', 'asset_type']
-        final_cols = ['symbol', 'name', 'asset_type', 'ipo_date', 'delisting_date']
-        
-        # Symbol-name-asset_type rows with no duplicates
-        data_no_dup = data.drop_duplicates(subset=col_keys, keep=False)
-        
-        # Rest has duplicates
-        ind_dup = [ind for ind in data.index if ind not in data_no_dup.index]
-        data_dup = data.iloc[ind_dup]
+        # Get API prices
+        api_prices = self.get_adjusted_prices(symbol, size)
 
-        # Since Active listings are first we use those for delisting_date
-        data_dup_first = data_dup.drop_duplicates(subset=col_keys, keep='first')
+        if api_prices is not None:
 
-        # From all other rows we compute the first ipo_date
-        data_dup_ipoDate = data_dup.groupby(col_keys)[['ipo_date']].min().reset_index()
-        
-        # We merge both to have oldest ipo_date and newest delisting_date
-        data_dedup = (
-            data_dup_first
-            .drop(columns='ipo_date')
-            .merge(data_dup_ipoDate,
-                left_on=col_keys,
-                right_on=col_keys)
-        )
-        
-        # We combine rows with no duplicates with the rest of the rows now deduplicated
-        data_clean = data_no_dup[final_cols].append(data_dedup[final_cols]).reset_index(drop=True)
-        
-        # Confirm that col_keys elements can be used as primary keys
-        assert data_clean.drop_duplicates(subset=col_keys, keep=False).shape[0] == data_clean.shape[0]
-        
-        return data_clean
+            # Get database prices
+            db_prices = self._get_db_prices(symbol)
 
+            # Check whether and what to upload
+            should_upload, clean_db_table, api_prices = \
+                self._get_api_prices_to_upload(api_prices, db_prices, size)
 
-    def get_assets_table(self, data_clean):
-        
-        assets = (
-            data_clean
-            .loc[data_clean.asset_type == 'Stock']
-            .sort_values(by=['symbol', 'name', 'asset_type'])
-            .reset_index(drop=True)
-            .reset_index()
-            .rename(columns={'index': 'pid'})
-        )
-        
-        return assets
+            if should_upload:
 
+                if api_prices is None:
+                    # Fetch full history
+                    api_prices = self.get_adjusted_prices(symbol, size='full')
+                
+                if clean_db_table:
+                    # DB information has to be deleted for symbol
 
-    def refresh_listings(self,
-                        date_input=None, 
-                        assets_table='assets',
-                        assets_alpha_table='assets_alpha', 
-                        assets_alpha_clean_table='assets_alpha_clean'):
+                    # Clean symbol rows
+                    query = f"delete from {table_prices} where symbol = '{symbol}'"
+                    self.sql.query(query)
 
-        # Date
-        if date_input is None:
-            date_input = datetime.now()
-        
-        # Download listing status
-        data = self.download_all_listings(date_input)
-        
-        # Dedup listings
-        #data_clean = self.clean_listings(data)
-        
-        # Assets table
-        #assets = self.get_assets_table(data_clean)
-        
-        # Update assets_table
-        self.sql.clean_table(assets_alpha_table)
-        self.sql.upload_df_chunks(assets_alpha_table, data)
-        
-        # Update assets_table_clean
-        #self.sql.clean_table(assets_alpha_clean_table)
-        #self.sql.upload_df_chunks(assets_alpha_clean_table, data_clean)
-        
-        # Update assets
-        #self.sql.clean_table(assets_table)
-        #self.sql.upload_df_chunks(assets_table, assets)
+                # Upload to database
+                assert api_prices.shape[0] > 0
+                print(f'Uploading {api_prices.shape[0]} dates for {symbol}')
+                self.sql.upload_df_chunks(table_prices, api_prices)
+
+            else:
+
+                print(f'Database already up to date for {symbol}')
 
 
     def get_adjusted_prices(self, symbol, size='full'):
+        """Hit AlphaVantage API to get prices of symbol
+
+                Parameters
+                ----------
+                date_input : datetime
+                    Date at which the delisting snapshot is taken
+
+                Returns
+                -------
+                pd.DataFrame or None
+                    DataFrame with prices in API, according to given size
+                    If it fails to retrieve prices successfully, returns None
+        """
 
         url = f'{URL_BASE}TIME_SERIES_DAILY_ADJUSTED&symbol={symbol}&outputsize={size}&apikey={self.api_key}'
 
@@ -242,13 +288,13 @@ class AlphaScraper():
             print(e)
 
 
-    def get_db_prices(self, symbol):
+    def _get_db_prices(self, symbol: str) -> pd.DataFrame:
         query = f"select * from prices_alpha where symbol = '{symbol}'"
         db_prices = self.sql.select_query(query)
         return db_prices
     
 
-    def find_date_to_upload_from(self, api_prices, db_prices):
+    def _find_date_to_upload_from(self, api_prices, db_prices):
         """
             Returns date from which api_prices should be uploaded (inclusive)
             It is also the date up to which db dates are valid and should be kept
@@ -296,9 +342,12 @@ class AlphaScraper():
         return should_upload, date_upload
 
 
-
-
-    def get_api_prices_to_upload(self, api_prices_input, db_prices, size):
+    def _get_api_prices_to_upload(
+        self, 
+        api_prices_input: pd.DataFrame, 
+        db_prices: pd.DataFrame, 
+        size: str,
+        ):
 
         # Check and copy api_prices_input
         assert api_prices_input.shape[0] > 0
@@ -314,7 +363,7 @@ class AlphaScraper():
 
         # Get last valid date of symbol in database (inclusive)
         # Which is also the same from which api_prices should be uploaded (inclusive)
-        should_upload, date_upload = self.find_date_to_upload_from(api_prices, db_prices)
+        should_upload, date_upload = self._find_date_to_upload_from(api_prices, db_prices)
 
         # clean_db_table is True if the table has to be cleaned of symbol data
         clean_db_table = False
@@ -373,36 +422,3 @@ class AlphaScraper():
         return should_upload, clean_db_table, api_prices
 
 
-    def update_prices_symbol(self, symbol, size, table_prices='prices_alpha'):
-
-        # Get API prices
-        api_prices = self.get_adjusted_prices(symbol, size)
-
-        # Get database prices
-        db_prices = self.get_db_prices(symbol)
-
-        # Check whether and what to upload
-        should_upload, clean_db_table, api_prices = \
-            self.get_api_prices_to_upload(api_prices, db_prices, size)
-
-        if should_upload:
-
-            if api_prices is None:
-                # Fetch full history
-                api_prices = self.get_adjusted_prices(symbol, size='full')
-            
-            if clean_db_table:
-                # DB information has to be deleted for symbol
-
-                # Clean symbol rows
-                query = f"delete from {table_prices} where symbol = '{symbol}'"
-                self.sql.query(query)
-
-            # Upload to database
-            assert api_prices.shape[0] > 0
-            print(f'Uploading {api_prices.shape[0]} dates for {symbol}')
-            self.sql.upload_df_chunks(table_prices, api_prices)
-
-        else:
-
-            print("Database already up to date.")
