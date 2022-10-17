@@ -68,8 +68,8 @@ class AlphaScraper():
         args = [(symbol, size) for symbol in assets.symbol]
         print(args)
         fun = lambda p: self.update_prices_symbol(*p)
-        #utils.compute(args, fun, max_workers=5)
-        utils.compute_loop(args, fun)
+        utils.compute(args, fun, max_workers=5)
+        #utils.compute_loop(args, fun)  # temporal, for debugging purposes
 
 
     def get_assets_to_refresh(self, asset_types, validate):
