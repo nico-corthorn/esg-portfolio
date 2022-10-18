@@ -7,7 +7,7 @@ from datetime import datetime
 from pandas.tseries.offsets import BDay
 from pytz import timezone
 
-from utils import sql_manager, utils
+from esgtools.utils import sql_manager, utils
 
 URL_BASE = 'https://www.alphavantage.co/query?function='
 
@@ -66,7 +66,6 @@ class AlphaScraper():
 
         # Update db prices in parallel
         args = [(symbol, size) for symbol in assets.symbol]
-        print(args)
         fun = lambda p: self.update_prices_symbol(*p)
         utils.compute(args, fun, max_workers=5)
         #utils.compute_loop(args, fun)  # temporal, for debugging purposes
@@ -74,7 +73,7 @@ class AlphaScraper():
 
     def get_assets_to_refresh(self, asset_types, validate):
         """ Returns DataFrame with unique tickers from asset_table
-        """ 
+        """
 
         # Get full assets table
         query = f"select * from assets_alpha"
