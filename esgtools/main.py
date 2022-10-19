@@ -7,8 +7,10 @@ def main():
     print("Starting scraper!")
     alpha = etl_alpha.AlphaScraper()
 
-    size = 'full'
-    alpha.refresh_all_prices(size)
+    size = 'compact'
+    #alpha.refresh_all_prices(size)
+    alpha.update_prices_symbol('AAPL', size)
+    alpha._get_db_prices("Catalina")
     print("Done!")
 
 
