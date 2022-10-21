@@ -193,34 +193,36 @@ class AlphaScraper():
 
         if api_prices is not None:
 
-            # Get database prices
-            db_prices = self._get_db_prices(symbol)
+            if api_prices.shape[0] > 0:
 
-            # Check whether and what to upload
-            should_upload, clean_db_table, api_prices = \
-                self._get_api_prices_to_upload(api_prices, db_prices, size)
+                # Get database prices
+                db_prices = self._get_db_prices(symbol)
 
-            if should_upload:
+                # Check whether and what to upload
+                should_upload, clean_db_table, api_prices = \
+                    self._get_api_prices_to_upload(api_prices, db_prices, size)
 
-                if api_prices is None:
-                    # Fetch full history
-                    api_prices = self.get_adjusted_prices(symbol, size='full')
-                
-                if clean_db_table:
-                    # DB information has to be deleted for symbol
+                if should_upload:
 
-                    # Clean symbol rows
-                    query = f"delete from {table_prices} where symbol = '{symbol}'"
-                    self.sql.query(query)
+                    if api_prices is None:
+                        # Fetch full history
+                        api_prices = self.get_adjusted_prices(symbol, size='full')
+                    
+                    if clean_db_table:
+                        # DB information has to be deleted for symbol
 
-                # Upload to database
-                assert api_prices.shape[0] > 0
-                print(f'Uploading {api_prices.shape[0]} dates for {symbol}')
-                self.sql.upload_df_chunks(table_prices, api_prices)
+                        # Clean symbol rows
+                        query = f"delete from {table_prices} where symbol = '{symbol}'"
+                        self.sql.query(query)
 
-            else:
+                    # Upload to database
+                    assert api_prices.shape[0] > 0
+                    print(f'Uploading {api_prices.shape[0]} dates for {symbol}')
+                    self.sql.upload_df_chunks(table_prices, api_prices)
 
-                print(f'Database already up to date for {symbol}')
+                else:
+
+                    print(f'Database already up to date for {symbol}')
 
 
     def get_adjusted_prices(self, symbol, size='full'):
@@ -293,12 +295,26 @@ class AlphaScraper():
         return db_prices
     
 
-    def _find_date_to_upload_from(self, api_prices, db_prices):
-        """
-            Returns date from which api_prices should be uploaded (inclusive)
-            It is also the date up to which db dates are valid and should be kept
-            If output is None, no filter should be applied over api_prices
-            and all registers of the symbol should be deleted from the prices table
+    def _find_date_to_upload_from(
+        self, api_prices: pd.DataFrame, db_prices: pd.DataFrame):
+        """Returns whether the data from the API should be included in the db,
+        and the maximum date to keep information in the database. Expecting
+        only 1 symbol (unchecked).
+
+            Parameters
+            ----------
+            api_prices : pd.DataFrame
+                API data including symbol, close, adjusted_close, etc
+            db_prices: pd.DataFrame
+                Data from the database with the same columns as api_prices
+
+            Returns
+            -------
+            should_upload: bool
+                True if there is data in the API to upload for the symbol
+            date_upload: datetime or None
+                Maximum date to keep information in the database unless there
+                was a price event.
         """
 
         should_upload = False
@@ -349,8 +365,7 @@ class AlphaScraper():
         ):
 
         # Check and copy api_prices_input
-        assert api_prices_input.shape[0] > 0
-        api_prices = api_prices_input.copy()
+        assert api_prices.shape[0] > 0
 
         # Symbol
         api_symbols = api_prices.symbol.unique()
