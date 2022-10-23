@@ -204,7 +204,7 @@ class AlphaScraper():
 
                 if should_upload:
 
-                    if api_prices is None:
+                    if api_prices.empty:
                         # Fetch full history
                         api_prices = self.get_adjusted_prices(symbol, size='full')
                     
@@ -382,10 +382,12 @@ class AlphaScraper():
         # clean_db_table is True if the table has to be cleaned of symbol data
         clean_db_table = False
 
+        empty_df = pd.DataFrame(columns=api_prices.columns)
+
         if not should_upload:
 
             # There is nothing to upload
-            api_prices = None
+            api_prices = empty_df
             
             # Returning False, None
             return should_upload, clean_db_table, api_prices
@@ -402,7 +404,7 @@ class AlphaScraper():
                 # If the API data collected is not the full history
                 # return False, meaning the upload has to be repeated
                 # with the full history
-                api_prices = None
+                api_prices = empty_df
             
             return should_upload, clean_db_table, api_prices
 
@@ -429,7 +431,7 @@ class AlphaScraper():
                 clean_db_table = True
 
                 if size != 'full':
-                    api_prices = None
+                    api_prices = empty_df
                 
                 return should_upload, clean_db_table, api_prices
 
