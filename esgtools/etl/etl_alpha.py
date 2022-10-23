@@ -359,7 +359,7 @@ class AlphaScraper():
 
     def _get_api_prices_to_upload(
         self, 
-        api_prices_input: pd.DataFrame, 
+        api_prices: pd.DataFrame, 
         db_prices: pd.DataFrame, 
         size: str,
         ):
