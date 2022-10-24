@@ -214,6 +214,14 @@ class AlphaScraper():
                         # Clean symbol rows
                         query = f"delete from {table_prices} where symbol = '{symbol}'"
                         self.sql.query(query)
+                    #else:
+                    date_min = api_prices.date.min()
+                    query = f"""
+                    delete from {table_prices} 
+                    where symbol = '{symbol}'
+                        and date >= '{date_min}'
+                    """
+                    #self.sql.query(query)
 
                     # Upload to database
                     assert api_prices.shape[0] > 0
