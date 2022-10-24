@@ -11,7 +11,7 @@ def test_get_last_business_date():
 
 prices_path = "esgtools/tests/data/prices/"
 
-@pytest.mark.parametrize("scenario", [1, 2])
+@pytest.mark.parametrize("scenario", [1, 2, 3, 4, 5, 6])
 def test_get_api_prices_to_upload(scenario):
     
     alpha = etl_alpha.AlphaScraper()
