@@ -9,13 +9,13 @@ from esgtools.etl import etl_alpha
 def test_get_last_business_date():
     assert 1==1
 
-prices_path = "esgtools/tests/data/prices/"
 
 @pytest.mark.parametrize("scenario", [1, 2, 3, 4, 5, 6])
 def test_get_api_prices_to_upload(scenario):
     
-    alpha = etl_alpha.AlphaScraper()
+    alpha = etl_alpha.AlphaScraper(connect=False)
 
+    prices_path = "esgtools/tests/data/prices/"
     api_prices = pd.read_csv(f"{prices_path}/scenario_{scenario}/api_prices.csv")
     db_prices = pd.read_csv(f"{prices_path}/scenario_{scenario}/db_prices.csv")
     exp_api_prices = pd.read_csv(f"{prices_path}/scenario_{scenario}/output_df.csv")
