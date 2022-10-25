@@ -411,6 +411,7 @@ dependencies:
   - zlib=1.2.11=h6c3fc93_1014
   - zstd=1.5.2=h582d3a0_0
   - pip:
+    - esgtools==0.0.1
     - lxml==4.9.1
     - pandas-datareader==0.10.0
     - psycopg2==2.9.3
