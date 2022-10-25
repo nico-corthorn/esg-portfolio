@@ -14,8 +14,9 @@ URL_BASE = 'https://www.alphavantage.co/query?function='
 
 class AlphaScraper():
 
-    def __init__(self):
-        self.sql = sql_manager.ManagerSQL()
+    def __init__(self, connect=True):
+        if connect:
+            self.sql = sql_manager.ManagerSQL()
         self.today = datetime.now().date()
         self.last_business_date = self._get_last_business_date()
         self.api_key = os.environ.get('ALPHAVANTAGE_API_KEY')
