@@ -3,11 +3,22 @@ import os
 import json
 import pytest
 import pandas as pd
+from datetime import datetime
+from pytz import timezone
 from esgtools.etl import etl_alpha
 
+tz = timezone('US/Pacific')
 
-def test_get_last_business_date():
-    assert 1==1
+@pytest.mark.parametrize("datetime_run,date_exp", [
+(datetime(2022, 10, 26, 18, 0, 0, tzinfo=tz), datetime(2022, 10, 26)),
+(datetime(2022, 10, 26, 10, 0, 0, tzinfo=tz), datetime(2022, 10, 25)),
+(datetime(2022, 10, 22, 22, 0, 0, tzinfo=tz), datetime(2022, 10, 21)),
+(datetime(2023, 1, 2, 5, 0, 0, tzinfo=tz), datetime(2022, 12, 30)),
+])
+def test_get_last_business_date(datetime_run, date_exp):
+    alpha = etl_alpha.AlphaScraper(connect=False, asof=datetime_run)
+    date_act = alpha._get_last_business_date()
+    assert date_exp.date() == date_act
 
 
 @pytest.mark.parametrize("scenario", [1, 2, 3, 4, 5, 6])
