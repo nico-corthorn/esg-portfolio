@@ -14,10 +14,12 @@ URL_BASE = 'https://www.alphavantage.co/query?function='
 
 class AlphaScraper():
 
-    def __init__(self, connect=True):
+    def __init__(self, connect=True, asof=None):
         if connect:
             self.sql = sql_manager.ManagerSQL()
-        self.today = datetime.now().date()
+        if asof is None:
+            asof = datetime.today()
+        self.today = asof
         self.last_business_date = self._get_last_business_date()
         self.api_key = os.environ.get('ALPHAVANTAGE_API_KEY')
 
@@ -25,18 +27,18 @@ class AlphaScraper():
     def _get_last_business_date(self):
 
         # Check whether it is a business day
-        is_business_day = (self.today - BDay(1) + BDay(1)).date() == self.today
+        is_business_day = (self.today - BDay(1) + BDay(1)).date() == self.today.date()
 
         # Check whether stock market is closed in USA
-        time_eastern = datetime.now(timezone('EST'))
+        time_eastern = self.today.astimezone(timezone('US/Eastern'))
         is_after_4_pm = time_eastern.hour >= 16
 
         # If weekday and after 4 pm ET
         if is_business_day and is_after_4_pm:
-            return self.today
+            return self.today.date()
 
         # If weekend, holiday or before 4 pm then return last business day
-        return (self.today - BDay(1)).date()
+        return (self.today.date() - BDay(1)).date()
 
 
     def refresh_listings(self,
