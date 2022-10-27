@@ -447,3 +447,52 @@ class AlphaScraper():
         return should_upload, clean_db_table, api_prices
 
 
+###Balance:
+
+    def _download_balance(self, symbol):
+        """Hit AlphaVantage API to get balance sheet
+
+            Returns
+            -------
+            pd.DataFrame
+                DataFrame with balance sheet
+        """
+        
+        url = f'{URL_BASE}BALANCE_SHEET&symbol={symbol}&apikey={self.api_key}'
+        r = requests.get(url)
+        data_json = r.json()
+        
+        accounts = ['totalAssets', 'commonStock', 'commonStockSharesOutstanding']
+        final_cols = ['symbol', 'report_type', 'report_date', 'currency', 'account_name', 'account_value']
+        key_report_map = {
+        'annualReports': 'A',
+        'quarterlyReports': 'Q'}
+
+        data_annual = self.wrangle_json(data_json, 'annualReports', key_report_map, accounts, final_cols)
+        data_quarter = self.wrangle_json(data_json, 'quarterlyReports', key_report_map, accounts, final_cols)
+        data = data_annual.append(data_quarter)
+
+        return data
+
+
+    def wrangle_json(self, symbol, data_json, key_report, key_report_map, accounts, final_cols):
+        
+        data = pd.DataFrame()
+
+        for report in data_json[key_report]:
+            
+            data_report_lst = [[k, v] for k, v in report.items() if k in accounts]
+            currency = report['reportedCurrency']
+            fiscal_date = report['fiscalDateEnding']
+            data_report = pd.DataFrame(data_report_lst, columns=['account_name', 'account_value'])
+            data_report['symbol'] = symbol
+            data_report['report_type'] = key_report_map[key_report]
+            data_report['report_date'] = fiscal_date
+            data_report['currency'] = currency
+            data_report = data_report[final_cols]
+            data = data.append(data_report)
+
+        return data
+
+
+
