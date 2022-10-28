@@ -408,10 +408,6 @@ class AlphaScraper():
         if len(db_symbols) == 1:
             assert db_symbols == api_symbols
 
-        # Get last valid date of symbol in database (inclusive)
-        # Which is also the same from which api_prices should be uploaded (inclusive)
-        #should_upload, date_upload = self._find_date_to_upload_from(api_prices, db_prices)
-
         # Join API and database dates available
         api_dates_df = api_prices[['date', 'lud']].rename(columns={'lud': 'lud_api'})
         db_dates_df = db_prices[['date', 'lud']].rename(columns={'lud': 'lud_db'})
