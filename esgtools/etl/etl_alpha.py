@@ -374,6 +374,28 @@ class AlphaScraper():
         db_prices: pd.DataFrame, 
         size: str,
         ):
+        """Returns whether the data from the API should be included in the db,
+        whether to clean all the db data for the symbol and the API data to
+        upload, if any.
+
+            Parameters
+            ----------
+            api_prices : pd.DataFrame
+                API data including symbol, close, adjusted_close, etc
+            db_prices: pd.DataFrame
+                Data from the database with the same columns as api_prices
+
+            Returns
+            -------
+            should_upload: bool
+                True if there is data in the API to upload for the symbol.
+                Otherwise False
+            clean_db_table: bool
+                True if the prices_alpha table should be cleaned of the underlying
+                symbol. Otherwise False
+            api_prices: pd.DataFrame
+                API data that can be directly uploaded to prices_alpha in the db
+        """
 
         # Check and copy api_prices_input
         assert api_prices.shape[0] > 0
@@ -386,24 +408,43 @@ class AlphaScraper():
         if len(db_symbols) == 1:
             assert db_symbols == api_symbols
 
-        # Get last valid date of symbol in database (inclusive)
-        # Which is also the same from which api_prices should be uploaded (inclusive)
-        should_upload, date_upload = self._find_date_to_upload_from(api_prices, db_prices)
+        # Join API and database dates available
+        api_dates_df = api_prices[['date', 'lud']].rename(columns={'lud': 'lud_api'})
+        db_dates_df = db_prices[['date', 'lud']].rename(columns={'lud': 'lud_db'})
+        dates_df = api_dates_df.merge(
+            db_dates_df,
+            how='outer',
+            left_on='date',
+            right_on='date'
+        )
+
+        # Get dates missing in db
+        db_dates_missing = dates_df[dates_df.lud_db.isnull()].date
+
+        # should_upload is True if there are API dates missing in db
+        should_upload = False
 
         # clean_db_table is True if the table has to be cleaned of symbol data
         clean_db_table = False
 
+        # Empty DataFrame
         empty_df = pd.DataFrame(columns=api_prices.columns)
 
-        if not should_upload:
+        if len(db_dates_missing) == 0:
 
             # There is nothing to upload
             api_prices = empty_df
             
-            # Returning False, None
+            # Returning False, False, Empty DataFrame
             return should_upload, clean_db_table, api_prices
 
-        if date_upload is None:
+        # There are API dates missing in the db
+        should_upload = True
+
+        # Get dates in db that are potentially valid
+        db_dates_valid = db_prices.loc[db_prices.date < db_dates_missing.min()]
+
+        if db_dates_valid.shape[0] == 0:
 
             # There are no valid dates in the db for the symbol.
             # Any rows related to the symbol should be erased
@@ -420,7 +461,12 @@ class AlphaScraper():
             return should_upload, clean_db_table, api_prices
 
         else:
-            # There is data in the db that is potentially useful
+
+            # Database has data for dates that are valid if no split or dividend
+            # has ocurred since. To be validated later.
+
+            # The date up to which db data might be kept is the following
+            date_upload = db_dates_valid.date.max()
 
             # Check if prices and coefficients are the same in date_upload
             cols_equal = ['symbol', 'date', 'close', 'adjusted_close', 'dividend_amount', 'split_coefficient']
@@ -438,7 +484,6 @@ class AlphaScraper():
             else:
                 # There was a split or dividend
                 # All history should be downloaded
-
                 clean_db_table = True
 
                 if size != 'full':
@@ -449,7 +494,7 @@ class AlphaScraper():
         return should_upload, clean_db_table, api_prices
 
 
-###Balance:
+    ###Balance:
 
     def _download_balance(self, symbol):
         """Hit AlphaVantage API to get balance sheet

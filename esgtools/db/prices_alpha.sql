@@ -16,5 +16,10 @@ CREATE TABLE prices_alpha
 	PRIMARY KEY (symbol, date, lud)
 )
 
+--DROP INDEX symbol_idx;
+CREATE INDEX prices_alpha_symbol_idx ON prices_alpha (symbol);
+CREATE INDEX prices_alpha_date_idx ON prices_alpha (date);
+
+
 
 
