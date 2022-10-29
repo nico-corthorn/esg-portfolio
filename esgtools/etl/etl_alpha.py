@@ -25,6 +25,16 @@ class AlphaScraper():
 
 
     def _get_last_business_date(self):
+        """Returns last business date that has closed in NY
+            
+            Returns
+            -------
+            datetime.date
+                Last business date that has closed in NY.
+                If self.today is a weekend or holiday, it returns the last business date.
+                If self.today is a business date, then it returns the same date if it is past
+                4 pm ET, otherwise the last business date.
+        """
 
         # Check whether it is a business day
         is_business_day = (self.today - BDay(1) + BDay(1)).date() == self.today.date()
@@ -44,6 +54,25 @@ class AlphaScraper():
     def refresh_listings(self,
                         date_input=None, 
                         assets_alpha_table='assets_alpha'):
+        """Updates assets_alpha table as of date_input with listed and delisted
+        stocks and ETFs.
+
+            Parameters
+            ----------
+            date_input: datetime.datetime
+                Date to use for API call of listed and delisted
+            assets_alpha_table: str
+                Name of assets table. Default should be kept in most cases
+
+            Returns
+            -------
+            None
+
+            Side effects
+            ------------
+            Deletes assets_alpha content and then updates the table
+            with data from the API using date_input
+        """
 
         # Date
         if date_input is None:
@@ -63,6 +92,27 @@ class AlphaScraper():
         validate:bool = False, 
         asset_types:list = ['Stock']
         ):
+        """Tries to update prices_alpha table as of latest closed availables for each assets in
+        assets_alpha table. Each symbol is ran in parallel
+
+            Parameters
+            ----------
+            size: str
+                Either 'compact' or 'full'. If compact, API returns latest 100 records.
+                If full it returns all available records
+            validate: bool
+
+
+            Returns
+            -------
+            None
+
+            Side effects
+            ------------
+            Updates prices_alpha table. It tries to keep previous records if nothing
+            has changed. It will update the whole history of symbols that have had
+            a price event that adjusts retroactively likely splits and dividends.
+        """
 
         # Get available assets from db
         assets = self.get_assets_to_refresh(asset_types, validate)
@@ -161,15 +211,15 @@ class AlphaScraper():
     def _download_delisted(self, date_input: datetime) -> pd.DataFrame:
         """Hit AlphaVantage API to get delisted assets
 
-                Parameters
-                ----------
-                date_input : datetime
-                    Date at which the delisting snapshot is taken
+            Parameters
+            ----------
+            date_input : datetime
+                Date at which the delisting snapshot is taken
 
-                Returns
-                -------
-                pd.DataFrame
-                    DataFrame with listings that were delisted as of given date
+            Returns
+            -------
+            pd.DataFrame
+                DataFrame with listings that were delisted as of given date
 
         """
         
