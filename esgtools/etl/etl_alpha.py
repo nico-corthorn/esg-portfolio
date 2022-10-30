@@ -101,7 +101,12 @@ class AlphaScraper():
                 Either 'compact' or 'full'. If compact, API returns latest 100 records.
                 If full it returns all available records
             validate: bool
-
+                If False, it will try to update only assets that are up to date
+                according to today's date or their delisting date. If True, it will
+                try to update all assets in assets_alpha
+            asset_types: list
+                Asset types to consider for update. Asset types not in the list
+                will not be considered. Reasonable options are ['Stock'] or ['Stock', 'ETF']
 
             Returns
             -------
