@@ -8,6 +8,7 @@ CREATE TABLE balance_alpha
 	currency varchar(3) NOT NULL,
 	account_name text NOT NULL,
 	account_value bigint, 
+	lud timestamp NOT NULL,
 	PRIMARY KEY (symbol, report_type, report_date, currency, account_name)
 )
 

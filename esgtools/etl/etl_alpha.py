@@ -3,7 +3,7 @@ import os
 import csv
 import requests
 import pandas as pd
-from datetime import datetime
+from datetime import date, datetime
 from pandas.tseries.offsets import BDay
 from pytz import timezone
 
@@ -254,7 +254,7 @@ class AlphaScraper():
             if api_prices.shape[0] > 0:
 
                 # Get database prices
-                db_prices = self._get_db_prices(symbol)
+                db_prices = self._get_db_data(symbol, table_prices)
 
                 # Check whether and what to upload
                 should_upload, clean_db_table, api_prices = \
@@ -355,10 +355,10 @@ class AlphaScraper():
             print(e)
 
 
-    def _get_db_prices(self, symbol: str) -> pd.DataFrame:
-        query = f"select * from prices_alpha where symbol = '{symbol}'"
-        db_prices = self.sql.select_query(query)
-        return db_prices
+    def _get_db_data(self, symbol: str, table: str) -> pd.DataFrame:
+        query = f"select * from {table} where symbol = '{symbol}'"
+        db_data = self.sql.select_query(query)
+        return db_data
     
 
     def _find_date_to_upload_from(
@@ -551,50 +551,114 @@ class AlphaScraper():
 
     ###Balance:
 
-    def _download_balance(self, symbol):
+    def update_balance_symbol(self, symbol, table_balance='balance_alpha'):
+
+        print(f'Updating balance for {symbol}')
+
+        # Get API balance
+        api_balance = self.get_balance(symbol)
+
+        if api_balance is not None:
+
+            if not api_balance.empty:
+
+                # Get database balance
+                db_balance = self._get_db_data(symbol, table_balance)
+
+                # Check whether and what to upload
+                date_col = "report_date"
+                # include report_type
+                # make date_col, report_type pairs unique
+                api_dates_df = api_balance[[date_col, 'lud']].rename(columns={'lud': 'lud_api'})
+                db_dates_df = db_balance[[date_col, 'lud']].rename(columns={'lud': 'lud_db'})
+                dates_df = api_dates_df.merge(
+                    db_dates_df,
+                    how='outer',
+                    left_on=date_col,
+                    right_on=date_col
+                )
+
+                # Get dates missing in db
+                db_dates_missing = dates_df[dates_df.lud_db.isnull()][date_col]
+                should_upload = not len(db_dates_missing) == 0
+
+                if should_upload:
+
+                    api_balance = api_balance.loc[api_balance[date_col].isin(db_dates_missing)]
+
+                    # Upload to database
+                    assert api_balance.shape[0] > 0
+                    print(f'Uploading {api_balance.shape[0]} dates for {symbol}')
+                    self.sql.upload_df_chunks(table_balance, api_balance)
+
+                else:
+                    print(f'Database already up to date for {symbol}')
+            
+            else:
+                print(f"No balance available in API for {symbol}")
+                
+
+    def get_balance(self, symbol: str):
         """Hit AlphaVantage API to get balance sheet
 
+            Parameters
+            ----------
+            symbol: str
+                symbol or ticker of the asset
+            
             Returns
             -------
-            pd.DataFrame
+            pd.DataFrame or None
                 DataFrame with balance sheet
         """
         
         url = f'{URL_BASE}BALANCE_SHEET&symbol={symbol}&apikey={self.api_key}'
-        r = requests.get(url)
-        data_json = r.json()
-        
-        accounts = ['totalAssets', 'commonStock', 'commonStockSharesOutstanding']
-        final_cols = ['symbol', 'report_type', 'report_date', 'currency', 'account_name', 'account_value']
-        key_report_map = {
-        'annualReports': 'A',
-        'quarterlyReports': 'Q'}
 
-        data_annual = self.wrangle_json(data_json, 'annualReports', key_report_map, accounts, final_cols)
-        data_quarter = self.wrangle_json(data_json, 'quarterlyReports', key_report_map, accounts, final_cols)
-        data = data_annual.append(data_quarter)
+        try:
 
-        return data
+            r = requests.get(url)
+            data_json = r.json()
+            
+            accounts = ['totalAssets', 'commonStock', 'commonStockSharesOutstanding']
+            final_cols = ['symbol', 'report_type', 'report_date', 'currency', 'account_name', 'account_value']
+            key_report_map = {
+                'annualReports': 'A',
+                'quarterlyReports': 'Q'
+            }
+            
+            data_annual = self.wrangle_json(symbol, data_json, 'annualReports', key_report_map, accounts, final_cols)
+            data_quarter = self.wrangle_json(symbol, data_json, 'quarterlyReports', key_report_map, accounts, final_cols)
+            data = data_annual.append(data_quarter)
+            data['lud'] = datetime.now()
+            return data
+
+        except Exception as e:
+            print(f'Download failed for {symbol}. \nurl: {url}')
+            print(e)
 
 
     def wrangle_json(self, symbol, data_json, key_report, key_report_map, accounts, final_cols):
         
         data = pd.DataFrame()
 
-        for report in data_json[key_report]:
-            
-            data_report_lst = [[k, v] for k, v in report.items() if k in accounts]
-            currency = report['reportedCurrency']
-            fiscal_date = report['fiscalDateEnding']
-            data_report = pd.DataFrame(data_report_lst, columns=['account_name', 'account_value'])
-            data_report['symbol'] = symbol
-            data_report['report_type'] = key_report_map[key_report]
-            data_report['report_date'] = fiscal_date
-            data_report['currency'] = currency
-            data_report = data_report[final_cols]
-            data = data.append(data_report)
+        if key_report in data_json: 
+
+            for report in data_json[key_report]:
+                
+                data_report_lst = [[k, v] for k, v in report.items() if k in accounts]
+                currency = report['reportedCurrency']
+                fiscal_date = report['fiscalDateEnding']
+                data_report = pd.DataFrame(data_report_lst, columns=['account_name', 'account_value'])
+                data_report['symbol'] = symbol
+                data_report['report_type'] = key_report_map[key_report]
+                data_report['report_date'] = fiscal_date
+                data_report['currency'] = currency
+                data_report = data_report[final_cols]
+                data = data.append(data_report)
 
         return data
+
+
 
 
 
