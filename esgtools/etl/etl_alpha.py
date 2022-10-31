@@ -129,6 +129,40 @@ class AlphaScraper():
         #utils.compute_loop(args, fun)  # temporal, for debugging purposes
 
 
+    def refresh_balances(
+        self, 
+        validate:bool = False, 
+        asset_types:list = ['Stock']
+        ):
+        """Tries to update balance_alpha table.
+
+            Parameters
+            ----------
+            validate: bool
+                If False, it will try to update only assets that are up to date
+                according to today's date or their delisting date. If True, it will
+                try to update all assets in assets_alpha
+            asset_types: list
+                Asset types to consider for update. Asset types not in the list
+                will not be considered. Reasonable options are ['Stock'] or ['Stock', 'ETF']
+
+            Returns
+            -------
+            None
+
+            Side effects
+            ------------
+        """
+
+        # Get available assets from db
+        assets = self.get_assets_to_refresh(asset_types, validate)
+
+        # Update db prices in parallel
+        args = [symbol for symbol in assets.symbol]
+        utils.compute(args, self.update_balance_symbol, max_workers=5)
+        #utils.compute_loop(args, self.update_balance_symbol)  # temporal, for debugging purposes
+
+
     def get_assets_to_refresh(self, asset_types, validate):
         """ Returns DataFrame with unique tickers from asset_table
         """
@@ -566,25 +600,36 @@ class AlphaScraper():
                 db_balance = self._get_db_data(symbol, table_balance)
 
                 # Check whether and what to upload
-                date_col = "report_date"
-                # include report_type
-                # make date_col, report_type pairs unique
-                api_dates_df = api_balance[[date_col, 'lud']].rename(columns={'lud': 'lud_api'})
-                db_dates_df = db_balance[[date_col, 'lud']].rename(columns={'lud': 'lud_db'})
+                key_cols = ["report_date", "report_type"]
+                api_dates_df = (
+                    api_balance[key_cols + ['lud']]
+                        .rename(columns={'lud': 'lud_api'})
+                        .drop_duplicates()
+                        .astype(str)
+                )
+                db_dates_df = (
+                    db_balance[key_cols + ['lud']]
+                        .rename(columns={'lud': 'lud_db'})
+                        .drop_duplicates()
+                        .astype(str)
+                )
+                #api_dates_df['report_date'] = pd.to_datetime(api_dates_df['report_date']).dt.date
                 dates_df = api_dates_df.merge(
                     db_dates_df,
                     how='outer',
-                    left_on=date_col,
-                    right_on=date_col
+                    left_on=key_cols,
+                    right_on=key_cols
                 )
 
                 # Get dates missing in db
-                db_dates_missing = dates_df[dates_df.lud_db.isnull()][date_col]
-                should_upload = not len(db_dates_missing) == 0
+                db_missing = dates_df[dates_df.lud_db.isnull()][key_cols]
+                should_upload = not len(db_missing) == 0
 
                 if should_upload:
 
-                    api_balance = api_balance.loc[api_balance[date_col].isin(db_dates_missing)]
+                    api_balance[key_cols] = api_balance[key_cols].astype(str)
+                    api_balance = api_balance.merge(
+                        db_missing, how='inner', left_on=key_cols, right_on=key_cols)
 
                     # Upload to database
                     assert api_balance.shape[0] > 0

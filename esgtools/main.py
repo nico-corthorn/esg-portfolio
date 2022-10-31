@@ -9,8 +9,9 @@ def main():
 
     size = 'compact'
     #alpha.refresh_all_prices(size)
-    alpha.update_prices_symbol('AAPL', size)
-    #alpha._get_db_prices("Catalina")
+    #alpha.update_prices_symbol('AAPL', size)
+    #alpha.update_balance_symbol('AMZN')
+    alpha.refresh_balances()
     print("Done!")
 
 
