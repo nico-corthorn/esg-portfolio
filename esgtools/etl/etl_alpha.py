@@ -2,6 +2,7 @@
 import os
 import csv
 import requests
+import time
 import pandas as pd
 from datetime import date, datetime
 from pandas.tseries.offsets import BDay
@@ -14,15 +15,45 @@ URL_BASE = 'https://www.alphavantage.co/query?function='
 
 class AlphaScraper():
 
-    def __init__(self, connect=True, asof=None):
+    def __init__(self, connect=True, asof=None, max_api_requests_per_min=75):
         if connect:
             self.sql = sql_manager.ManagerSQL()
         if asof is None:
             asof = datetime.today()
         self.today = asof
         self.last_business_date = self._get_last_business_date()
+        self.last_quarter_date = self._get_last_quarter_date(self.today)
         self.api_key = os.environ.get('ALPHAVANTAGE_API_KEY')
+        self.max_workers = 3
+        self.max_api_requests_per_min = max_api_requests_per_min
+        self.remaining_api_requests = max_api_requests_per_min
+        self.last_increase_time = datetime.today()
+        print(f"remaining_api_requests = {self.remaining_api_requests}")
 
+
+    def can_hit_api(self, wait=True):
+
+        # Remaining api requests
+        if self.remaining_api_requests > 0:
+            self.remaining_api_requests -= 1
+            print(f"Remaining api requests: {self.remaining_api_requests}")
+            return True
+        
+        # Reached maximum
+        delay = (datetime.today() - self.last_increase_time).total_seconds()
+        if wait:
+            if delay < 60:
+                print(f"Maximum limit reached. Sleeping for {60 - delay} seconds")
+                time.sleep(60 - delay)
+        
+        delay = (datetime.today() - self.last_increase_time).total_seconds()
+        if delay >= 60:
+            print("API limit refreshed after 1 minute")
+            self.remaining_api_requests = self.max_api_requests_per_min - 1
+            self.last_increase_time = datetime.today()
+            return True
+
+        return False
 
     def _get_last_business_date(self):
         """Returns last business date that has closed in NY
@@ -49,6 +80,18 @@ class AlphaScraper():
 
         # If weekend, holiday or before 4 pm then return last business day
         return (self.today.date() - BDay(1)).date()
+    
+
+    def _get_last_quarter_date(self, asof):
+        if asof:
+            if asof.month < 4:
+                return date(asof.year - 1, 12, 31)
+            elif asof.month < 7:
+                return date(asof.year, 3, 31)
+            elif asof.month < 10:
+                return date(asof.year, 6, 30)
+            return date(asof.year, 9, 30)
+        return None
 
 
     def refresh_listings(self,
@@ -121,26 +164,29 @@ class AlphaScraper():
 
         # Get available assets from db
         assets = self.get_assets_to_refresh(asset_types, validate)
+        if not validate:
+            assets = self._keep_only_incomplete_per_prices_alpha(assets)
 
         # Update db prices in parallel
         args = [(symbol, size) for symbol in assets.symbol]
         fun = lambda p: self.update_prices_symbol(*p)
-        utils.compute(args, fun, max_workers=5)
+        utils.compute(args, fun, max_workers=self.max_workers)
         #utils.compute_loop(args, fun)  # temporal, for debugging purposes
 
 
     def refresh_balances(
         self, 
-        validate:bool = False, 
+        filter_by_lud:bool = True,
+        filter_by_db_date:bool = True, 
         asset_types:list = ['Stock']
         ):
         """Tries to update balance_alpha table.
 
             Parameters
             ----------
-            validate: bool
-                If False, it will try to update only assets that are up to date
-                according to today's date or their delisting date. If True, it will
+            run_only_missing: bool
+                If True, it will try to update only assets that are up to date
+                according to today's date and/or their delisting date. If False, it will
                 try to update all assets in assets_alpha
             asset_types: list
                 Asset types to consider for update. Asset types not in the list
@@ -155,15 +201,19 @@ class AlphaScraper():
         """
 
         # Get available assets from db
-        assets = self.get_assets_to_refresh(asset_types, validate)
+        assets = self.get_assets_to_refresh(asset_types)
+        if filter_by_lud:
+            assets = self._filter_assets_by_lud(assets)
+        if filter_by_db_date:
+            assets = self._filter_assets_by_date(assets)
 
         # Update db prices in parallel
         args = [symbol for symbol in assets.symbol]
-        utils.compute(args, self.update_balance_symbol, max_workers=5)
+        utils.compute(args, self.update_balance_symbol, self.max_workers)
         #utils.compute_loop(args, self.update_balance_symbol)  # temporal, for debugging purposes
 
 
-    def get_assets_to_refresh(self, asset_types, validate):
+    def get_assets_to_refresh(self, asset_types):
         """ Returns DataFrame with unique tickers from asset_table
         """
 
@@ -180,28 +230,78 @@ class AlphaScraper():
             .reset_index(drop=True)
         )
 
-        if not validate:
+        return assets
 
-            # Get last available date in db prices table
-            query = """
-            select symbol, max(date) max_date
-            from prices_alpha
-            group by symbol
-            """
-            assets_max_date = self.sql.select_query(query)
 
-            assets = assets.merge(
-                assets_max_date,
-                how = 'left',
-                left_on='symbol',
-                right_on='symbol'
-            )
+    def _keep_only_incomplete_per_prices_alpha(self, assets):
 
-            # if active, last date in db (max_date) == self.last_business_date
-            cond_last_bd = assets.max_date == self.last_business_date
-            cond_delisted = assets.max_date >= assets.delisting_date
-            cond_updated = cond_last_bd | cond_delisted
-            assets = assets.loc[~cond_updated]
+        # Get last available date in db prices table
+        query = """
+        select symbol, max(date) max_date
+        from prices_alpha
+        group by symbol
+        """
+        assets_max_date = self.sql.select_query(query)
+
+        assets = assets.merge(
+            assets_max_date,
+            how = 'left',
+            left_on='symbol',
+            right_on='symbol'
+        )
+
+        # if active, last date in db (max_date) == self.last_business_date
+        cond_last_bd = assets.max_date == self.last_business_date
+        cond_delisted = assets.max_date >= assets.delisting_date
+        cond_updated = cond_last_bd | cond_delisted
+        assets = assets.loc[~cond_updated]
+        
+        return assets
+
+
+    def _filter_assets_by_lud(self, assets: pd.DataFrame):
+
+        # Get last available lud in db balance_alpha table
+        query = """
+        select symbol, max(lud) max_lud
+        from balance_alpha
+        group by symbol
+        """
+        assets_max_lud = self.sql.select_query(query)
+
+        assets = assets.merge(
+            assets_max_lud,
+            how = 'left',
+            left_on='symbol',
+            right_on='symbol'
+        )
+
+        cond_updated = assets.max_lud.dt.date > self.last_quarter_date
+        assets = assets.loc[~cond_updated]
+        return assets
+
+
+    def _filter_assets_by_date(self, assets: pd.DataFrame):
+
+        # Get last available date in db prices table
+        query = """
+        select symbol, max(report_date) max_date
+        from balance_alpha
+        group by symbol
+        """
+        assets_max_date = self.sql.select_query(query)
+
+        assets = assets.merge(
+            assets_max_date,
+            how = 'left',
+            left_on='symbol',
+            right_on='symbol'
+        )
+        
+        cond_last_quarter = assets.max_date >= self.last_quarter_date
+        cond_delisted = assets.max_date >= assets.delisting_date.map(self._get_last_quarter_date)
+        cond_updated = cond_last_quarter | cond_delisted
+        assets = assets.loc[~cond_updated]
         
         return assets
 
@@ -590,7 +690,9 @@ class AlphaScraper():
         print(f'Updating balance for {symbol}')
 
         # Get API balance
-        api_balance = self.get_balance(symbol)
+        api_balance = None
+        if self.can_hit_api(wait=True):
+            api_balance = self.get_balance(symbol)
 
         if api_balance is not None:
 
@@ -640,7 +742,7 @@ class AlphaScraper():
                     print(f'Database already up to date for {symbol}')
             
             else:
-                print(f"No balance available in API for {symbol}")
+                print(f"api_balance was empty for {symbol}")
                 
 
     def get_balance(self, symbol: str):
