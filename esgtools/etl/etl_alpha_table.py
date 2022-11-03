@@ -12,13 +12,12 @@ URL_BASE = 'https://www.alphavantage.co/query?function='
 
 class AlphaTable(ABC):
 
-    def __init__(self, table_name, columns, primary_keys, scraper, connect=True):
+    def __init__(self, table_name, columns, primary_keys, scraper):
         self.table_name = table_name
         self.columns = columns
         self.primary_keys = primary_keys
         self.scraper = scraper
-        if connect:
-            self.sql = sql_manager.ManagerSQL()
+        self.sql = sql_manager.ManagerSQL()
 
 
     @abstractmethod
