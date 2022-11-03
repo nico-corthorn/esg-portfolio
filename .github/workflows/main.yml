@@ -17,7 +17,7 @@ jobs:
       run: |
         make install
     - name: Test with pytest
-      env: |
+      env:
         ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
         POSTGRES_DB_NAME: ${{ secrets.POSTGRES_DB_NAME }}
         POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
