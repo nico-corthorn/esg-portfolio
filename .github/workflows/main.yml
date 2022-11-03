@@ -18,4 +18,5 @@ jobs:
         make install
     - name: Test with pytest
       run: |
+        echo ${{secrets.TEST_SECRET}}
         make test
