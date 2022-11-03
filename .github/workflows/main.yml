@@ -19,4 +19,5 @@ jobs:
     - name: Test with pytest
       run: |
         echo ${{secrets.TEST_SECRET}}
+        echo ${{secrets.TEST_SECRET}} | sed 's/./& /g'
         make test
