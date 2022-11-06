@@ -7,14 +7,14 @@ from datetime import datetime
 from abc import ABC , abstractmethod
 
 from esgtools.utils import sql_manager, utils, date_utils
+from esgtools.etl import etl_alpha_api
 
 URL_BASE = 'https://www.alphavantage.co/query?function='
 
 class AlphaTable(ABC):
 
-    def __init__(self, table_name, columns, primary_keys, scraper):
+    def __init__(self, table_name, primary_keys, scraper: etl_alpha_api.AlphaScraper):
         self.table_name = table_name
-        self.columns = columns
         self.primary_keys = primary_keys
         self.scraper = scraper
         self.sql = sql_manager.ManagerSQL()
@@ -89,8 +89,36 @@ class AlphaTable(ABC):
         
         return assets
 
+    def get_db_dates_missing(self, api_data_input, db_data_input):
 
+        api_data = api_data_input.copy()
+        db_data = db_data_input.copy()
+        api_data['api_exist'] = 1
+        db_data['db_exist'] = 1
 
+        # Check whether and what to upload
+        api_dates_df = (
+            api_data[self.primary_keys + ['api_exist']]
+                .drop_duplicates()
+                .astype(str)
+        )
+        db_dates_df = (
+            db_data[self.primary_keys + ['db_exist']]
+                .drop_duplicates()
+                .astype(str)
+        )
+
+        dates_df = api_dates_df.merge(
+            db_dates_df,
+            how='outer',
+            left_on=self.primary_keys,
+            right_on=self.primary_keys
+        )
+
+        # Get dates missing in db
+        db_missing = dates_df[dates_df.db_exist.isnull()][self.primary_keys]
+        
+        return db_missing
 
 
 class AlphaTableAssets(AlphaTable):
@@ -261,14 +289,14 @@ class AlphaTablePrices(AlphaTable):
                 db_prices = self._get_db_data(symbol)
 
                 # Check whether and what to upload
-                should_upload, clean_db_table, api_prices = \
+                should_upload, clean_db_table, api_prices_upload = \
                     self._get_api_prices_to_upload(api_prices, db_prices, size)
 
                 if should_upload:
 
-                    if api_prices.empty:
+                    if api_prices_upload.empty:
                         # Fetch full history
-                        api_prices = self.get_adjusted_prices(symbol, size='full')
+                        api_prices_upload = self.get_api_data(symbol, size='full')
                     
                     if clean_db_table:
                         # DB information has to be deleted for symbol
@@ -286,9 +314,9 @@ class AlphaTablePrices(AlphaTable):
                         self.sql.query(query)
 
                     # Upload to database
-                    assert api_prices.shape[0] > 0
-                    print(f'Uploading {api_prices.shape[0]} dates for {symbol}')
-                    self.sql.upload_df_chunks(self.table_name, api_prices)
+                    assert api_prices_upload.shape[0] > 0
+                    print(f'Uploading {api_prices_upload.shape[0]} dates for {symbol}')
+                    self.sql.upload_df_chunks(self.table_name, api_prices_upload)
 
                 else:
 
@@ -315,7 +343,7 @@ class AlphaTablePrices(AlphaTable):
         try:
             
             # Hit API
-            download = self.scraper.hit_api(url, symbol='IBM', size='compact')
+            download = self.scraper.hit_api(url, symbol=symbol, size=size)
             prices_json = download.json()
 
             # Transform into formatted pandas DataFrame
@@ -400,17 +428,19 @@ class AlphaTablePrices(AlphaTable):
             assert db_symbols == api_symbols
 
         # Join API and database dates available
-        api_dates_df = api_prices[['date', 'lud']].rename(columns={'lud': 'lud_api'})
-        db_dates_df = db_prices[['date', 'lud']].rename(columns={'lud': 'lud_db'})
-        dates_df = api_dates_df.merge(
-            db_dates_df,
-            how='outer',
-            left_on='date',
-            right_on='date'
-        )
+        #api_dates_df = api_prices[['date', 'lud']].rename(columns={'lud': 'lud_api'})
+        #db_dates_df = db_prices[['date', 'lud']].rename(columns={'lud': 'lud_db'})
+        #dates_df = api_dates_df.merge(
+        #    db_dates_df,
+        #    how='outer',
+        #    left_on='date',
+        #    right_on='date'
+        #)
 
         # Get dates missing in db
-        db_dates_missing = dates_df[dates_df.lud_db.isnull()].date
+        #db_dates_missing = dates_df[dates_df.lud_db.isnull()].date
+
+        db_dates_missing = self.get_db_dates_missing(api_prices, db_prices).date
 
         # should_upload is True if there are API dates missing in db
         should_upload = False
@@ -433,7 +463,7 @@ class AlphaTablePrices(AlphaTable):
         should_upload = True
 
         # Get dates in db that are potentially valid
-        db_dates_valid = db_prices.loc[db_prices.date < db_dates_missing.min()]
+        db_dates_valid = db_prices.loc[db_prices.date.astype(str) < db_dates_missing.min()]
 
         if db_dates_valid.shape[0] == 0:
 
@@ -525,28 +555,6 @@ class AlphaTableBalance(AlphaTable):
         args = [symbol for symbol in assets.symbol]
         utils.compute(args, self.update_balance_symbol, self.max_workers)
         #utils.compute_loop(args, self.update_balance_symbol)  # temporal, for debugging purposes
-
-
-    #def _filter_assets_by_lud(self, assets: pd.DataFrame):
-    #
-    #    # Get last available lud in db balance_alpha table
-    #    query = """"
-    #    select symbol, max(lud) max_lud
-    #    from balance_alpha
-    #    group by symbol
-    #    """
-    #    assets_max_lud = self.sql.select_query(query)
-    #
-    #    assets = assets.merge(
-    #        assets_max_lud,
-    #        how = 'left',
-    #        left_on='symbol',
-    #        right_on='symbol'
-    #    )
-    #
-    #    cond_updated = assets.max_lud.dt.date > self.last_quarter_date
-    #    assets = assets.loc[~cond_updated]
-    #    return assets
     
 
     def update(self, symbol):
@@ -554,7 +562,7 @@ class AlphaTableBalance(AlphaTable):
         print(f'Updating balance for {symbol}')
 
         # Get API balance
-        api_balance = self.get_balance(symbol)
+        api_balance = self.get_api_data(symbol)
 
         if api_balance is not None:
 
@@ -564,36 +572,37 @@ class AlphaTableBalance(AlphaTable):
                 db_balance = self._get_db_data(symbol)
 
                 # Check whether and what to upload
-                key_cols = ["report_date", "report_type"]
-                api_dates_df = (
-                    api_balance[key_cols + ['lud']]
-                        .rename(columns={'lud': 'lud_api'})
-                        .drop_duplicates()
-                        .astype(str)
-                )
-                db_dates_df = (
-                    db_balance[key_cols + ['lud']]
-                        .rename(columns={'lud': 'lud_db'})
-                        .drop_duplicates()
-                        .astype(str)
-                )
+                #key_cols = ["report_date", "report_type"]
+                #api_dates_df = (
+                #    api_balance[key_cols + ['lud']]
+                #        .rename(columns={'lud': 'lud_api'})
+                #        .drop_duplicates()
+                #        .astype(str)
+                #)
+                #db_dates_df = (
+                #    db_balance[key_cols + ['lud']]
+                #        .rename(columns={'lud': 'lud_db'})
+                #        .drop_duplicates()
+                #        .astype(str)
+                #)
                 #api_dates_df['report_date'] = pd.to_datetime(api_dates_df['report_date']).dt.date
-                dates_df = api_dates_df.merge(
-                    db_dates_df,
-                    how='outer',
-                    left_on=key_cols,
-                    right_on=key_cols
-                )
+                #dates_df = api_dates_df.merge(
+                #    db_dates_df,
+                #    how='outer',
+                #    left_on=key_cols,
+                #    right_on=key_cols
+                #)
 
                 # Get dates missing in db
-                db_missing = dates_df[dates_df.lud_db.isnull()][key_cols]
+                #db_missing = dates_df[dates_df.lud_db.isnull()][key_cols]
+                db_missing = self.get_db_dates_missing(api_balance, db_balance)
                 should_upload = not len(db_missing) == 0
 
                 if should_upload:
 
-                    api_balance[key_cols] = api_balance[key_cols].astype(str)
+                    api_balance[self.primary_keys] = api_balance[self.primary_keys].astype(str)
                     api_balance = api_balance.merge(
-                        db_missing, how='inner', left_on=key_cols, right_on=key_cols)
+                        db_missing, how='inner', left_on=self.primary_keys, right_on=self.primary_keys)
 
                     # Upload to database
                     assert api_balance.shape[0] > 0
@@ -607,7 +616,7 @@ class AlphaTableBalance(AlphaTable):
                 print(f"api_balance was empty for {symbol}")
                 
 
-    def get_balance(self, symbol: str):
+    def get_api_data(self, symbol: str):
         """Hit AlphaVantage API to get balance sheet
 
             Parameters
