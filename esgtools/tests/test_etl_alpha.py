@@ -25,7 +25,8 @@ def test_get_last_business_date(datetime_run, date_exp):
 def test_get_api_prices_to_upload(scenario):
     
     alpha_scraper = etl_alpha_api.AlphaScraper()
-    alpha_prices = etl_alpha_table.AlphaTablePrices("prices_alpha", [], [], alpha_scraper)
+    prices_keys = ["symbol", "date"]
+    alpha_prices = etl_alpha_table.AlphaTablePrices("prices_alpha", prices_keys, alpha_scraper)
 
     prices_path = "esgtools/tests/data/prices/"
     api_prices = pd.read_csv(f"{prices_path}/scenario_{scenario}/api_prices.csv")
