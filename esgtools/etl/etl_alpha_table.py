@@ -13,11 +13,16 @@ URL_BASE = 'https://www.alphavantage.co/query?function='
 
 class AlphaTable(ABC):
 
-    def __init__(self, table_name, primary_keys, scraper: etl_alpha_api.AlphaScraper):
+    def __init__(self, 
+                table_name: str, 
+                primary_keys: list, 
+                scraper: etl_alpha_api.AlphaScraper, 
+                max_workers=5):
         self.table_name = table_name
         self.primary_keys = primary_keys
         self.scraper = scraper
         self.sql = sql_manager.ManagerSQL()
+        self.max_workers = max_workers
 
 
     @abstractmethod
@@ -515,11 +520,25 @@ class AlphaTablePrices(AlphaTable):
         return should_upload, clean_db_table, api_prices
 
 
-class AlphaTableBalance(AlphaTable):
+class AlphaTableAccounting(AlphaTable):
+    """
+        Class to update balance_alpha and income_alpha tables
+    """
+
+    def __init__(self, 
+                table_name: str, 
+                url_table_name: str,
+                primary_keys: list, 
+                scraper: etl_alpha_api.AlphaScraper,
+                accounts: list,
+                **kwargs):
+        super().__init__(table_name, primary_keys, scraper, **kwargs)
+        self.accounts = accounts
+        self.url_table_name = url_table_name
+
 
     def update_all(
         self, 
-        filter_by_lud:bool = True,
         filter_by_db_date:bool = True, 
         asset_types:list = ['Stock']
         ):
@@ -545,15 +564,12 @@ class AlphaTableBalance(AlphaTable):
 
         # Get available assets from db
         assets = self.get_assets_to_refresh(asset_types)
-        #if filter_by_lud:
-        #    assets = self._filter_assets_by_lud(assets)
         if filter_by_db_date:
             assets = self.filter_assets_by_max_date(assets, "report_date", date_utils.get_last_quarter_date)
-            #assets = self._filter_assets_by_date(assets)
 
         # Update db prices in parallel
         args = [symbol for symbol in assets.symbol]
-        utils.compute(args, self.update_balance_symbol, self.max_workers)
+        utils.compute(args, self.update, self.max_workers)
         #utils.compute_loop(args, self.update_balance_symbol)  # temporal, for debugging purposes
     
 
@@ -570,28 +586,6 @@ class AlphaTableBalance(AlphaTable):
 
                 # Get database balance
                 db_balance = self._get_db_data(symbol)
-
-                # Check whether and what to upload
-                #key_cols = ["report_date", "report_type"]
-                #api_dates_df = (
-                #    api_balance[key_cols + ['lud']]
-                #        .rename(columns={'lud': 'lud_api'})
-                #        .drop_duplicates()
-                #        .astype(str)
-                #)
-                #db_dates_df = (
-                #    db_balance[key_cols + ['lud']]
-                #        .rename(columns={'lud': 'lud_db'})
-                #        .drop_duplicates()
-                #        .astype(str)
-                #)
-                #api_dates_df['report_date'] = pd.to_datetime(api_dates_df['report_date']).dt.date
-                #dates_df = api_dates_df.merge(
-                #    db_dates_df,
-                #    how='outer',
-                #    left_on=key_cols,
-                #    right_on=key_cols
-                #)
 
                 # Get dates missing in db
                 #db_missing = dates_df[dates_df.lud_db.isnull()][key_cols]
@@ -630,22 +624,21 @@ class AlphaTableBalance(AlphaTable):
                 DataFrame with balance sheet
         """
         
-        url = '{URL_BASE}BALANCE_SHEET&symbol={symbol}&apikey={api_key}'
+        url = '{URL_BASE}{url_table_name}&symbol={symbol}&apikey={api_key}'
 
         try:
 
-            download = self.scraper.hit_api(url, symbol=symbol)
+            download = self.scraper.hit_api(url, symbol=symbol, url_table_name=self.url_table_name)
             data_json = download.json()
             
-            accounts = ['totalAssets', 'commonStock', 'commonStockSharesOutstanding']
             final_cols = ['symbol', 'report_type', 'report_date', 'currency', 'account_name', 'account_value']
             key_report_map = {
                 'annualReports': 'A',
                 'quarterlyReports': 'Q'
             }
             
-            data_annual = self.wrangle_json(symbol, data_json, 'annualReports', key_report_map, accounts, final_cols)
-            data_quarter = self.wrangle_json(symbol, data_json, 'quarterlyReports', key_report_map, accounts, final_cols)
+            data_annual = self.wrangle_json(symbol, data_json, 'annualReports', key_report_map, self.accounts, final_cols)
+            data_quarter = self.wrangle_json(symbol, data_json, 'quarterlyReports', key_report_map, self.accounts, final_cols)
             data = data_annual.append(data_quarter)
             data['lud'] = datetime.now()
             return data
@@ -675,7 +668,4 @@ class AlphaTableBalance(AlphaTable):
                 data = data.append(data_report)
 
         return data
-
-#class AlphaTableIncome(AlphaTable):
-
 
