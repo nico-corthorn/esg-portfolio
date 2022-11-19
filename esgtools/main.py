@@ -1,11 +1,11 @@
 
 from datetime import datetime
-from esgtools.etl import etl_alpha_api, etl_alpha_table
+from esgtools.lib.alpha import api, table
 
 
 def main():
     print("Starting scraper!")
-    alpha_scraper = etl_alpha_api.AlphaScraper()
+    alpha_scraper = api.AlphaScraper()
 
     # Assets
     #alpha_assets = etl_alpha_table.AlphaTableAssets("assets_alpha", [], alpha_scraper)
@@ -26,7 +26,7 @@ def main():
 
     # Income
     income_accounts = ['netIncome']
-    alpha_income = etl_alpha_table.AlphaTableAccounting("income_alpha", "INCOME_STATEMENT", accounting_keys, alpha_scraper, income_accounts)
+    alpha_income = table.AlphaTableAccounting("income_alpha", "INCOME_STATEMENT", accounting_keys, alpha_scraper, income_accounts)
     #alpha_income.update("AAPL")
     alpha_income.update_all()
 
