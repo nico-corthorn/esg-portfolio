@@ -5,8 +5,8 @@ import pytest
 import pandas as pd
 from datetime import datetime
 from pytz import timezone
-from esgtools.lib.alpha import table, api
-from esgtools.lib.utils import date_utils
+from esgtools.alpha import table, api
+from esgtools.utils import date_utils
 
 tz = timezone('US/Pacific')
 
