@@ -1,6 +1,9 @@
+import os
 import json
-
-# import requests
+import boto3
+from botocore.exceptions import ClientError
+from utils import sql_manager
+from ast import literal_eval
 
 
 def lambda_handler(event, context):
@@ -25,13 +28,32 @@ def lambda_handler(event, context):
         Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
     """
 
-    # try:
-    #     ip = requests.get("http://checkip.amazonaws.com/")
-    # except requests.RequestException as e:
-    #     # Send some context about this error to Lambda Logs
-    #     print(e)
+    db_secret_name = "prod/awsportfolio/key"
+    api_secret_name = "prod/AlphaApi/key"	
+    region_name = "us-east-2"
 
-    #     raise e
+    print(f"os.cpu_count() = {os.cpu_count()}")
+
+    # Create a Secrets Manager client
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
+
+    try:
+        get_secret_value_response = client.get_secret_value(
+            SecretId=db_secret_name
+        )
+    except ClientError as e:
+        raise e
+
+    # Decrypts secret using the associated KMS key.
+    secret = literal_eval(get_secret_value_response['SecretString'])
+
+    sql = sql_manager.ManagerSQL(secret)
+    query = "SELECT * FROM assets_alpha LIMIT 1"
+    print(sql.select_query(query))
 
     return {
         "statusCode": 200,

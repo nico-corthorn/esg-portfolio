@@ -25,6 +25,5 @@ jobs:
         POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
         POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
         AWS_SAM_STACK_NAME: ${{ secrets.AWS_SAM_STACK_NAME }}
-        AWS_REGION: ${{ secrets.AWS_REGION }}
       run: |
         make test
