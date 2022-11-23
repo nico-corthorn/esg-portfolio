@@ -8,8 +8,8 @@ from sqlalchemy import create_engine
 
 def get_config_db():
     config_db = {}
-    config_db['db_name'] = os.environ.get('POSTGRES_DB_NAME')
-    config_db['user'] = os.environ.get('POSTGRES_USER')
+    config_db['dbname'] = os.environ.get('POSTGRES_DB_NAME')
+    config_db['username'] = os.environ.get('POSTGRES_USER')
     config_db['password'] = os.environ.get('POSTGRES_PASSWORD')
     config_db['host'] = os.environ.get('POSTGRES_HOST')
     config_db['port'] = os.environ.get('POSTGRES_PORT')
@@ -19,12 +19,18 @@ def get_config_db():
 class ManagerSQL:
 
     def __init__(self, sql_params=None):
+        """
+            Parameters
+            ----------
+            sql_params: dict or None
+                Should have the same key-value structure as the dictionary returned by Secrets Manager
+        """
 
         # Basic db parameters
         if sql_params is None:
             sql_params = get_config_db()
-        db_name = sql_params['db_name']
-        user = sql_params['user']
+        db_name = sql_params['dbname']
+        user = sql_params['username']
         password = sql_params['password']
         host = sql_params['host']
         port = sql_params['port']

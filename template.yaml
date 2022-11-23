@@ -20,6 +20,9 @@ Resources:
       CodeUri: esgtools/
       Handler: app.lambda_handler
       Runtime: python3.9
+      Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
+      Timeout: 600
+      MemorySize: 500
       Architectures:
         - x86_64
       Events:
@@ -28,6 +31,7 @@ Resources:
           Properties:
             Path: /hello
             Method: get
+
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
@@ -39,6 +43,3 @@ Outputs:
   HelloWorldFunction:
     Description: "Hello World Lambda Function ARN"
     Value: !GetAtt HelloWorldFunction.Arn
-  HelloWorldFunctionIamRole:
-    Description: "Implicit IAM Role created for Hello World function"
-    Value: !GetAtt HelloWorldFunctionRole.Arn

@@ -1,6 +1,6 @@
 
 from datetime import datetime
-from esgtools.lib.alpha import api, table
+from esgtools.alpha import api, table
 
 
 def main():
