@@ -2,9 +2,17 @@ import os
 import json
 import boto3
 from botocore.exceptions import ClientError
-from utils import sql_manager
 from ast import literal_eval
 
+# Ugly temporary solution
+try:
+    # works on lambda
+    from utils import sql_manager
+    print("from utils import sql_manager")
+except:
+    # works on pytest (taking esgtools as a package)
+    from esgtools.utils import sql_manager
+    print("from esgtools.utils import sql_manager")
 
 def lambda_handler(event, context):
     """Sample pure Lambda function
