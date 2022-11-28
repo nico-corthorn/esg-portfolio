@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from esgtools import app
+from esgtools import update_assets
 
 
 @pytest.fixture()
@@ -64,7 +64,7 @@ def apigw_event():
 
 def test_lambda_handler(apigw_event):
 
-    ret = app.lambda_handler(apigw_event, "")
+    ret = update_assets.lambda_handler(apigw_event, "")
     data = json.loads(ret["body"])
 
     assert ret["statusCode"] == 200

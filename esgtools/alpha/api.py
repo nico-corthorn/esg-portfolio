@@ -11,8 +11,11 @@ URL_BASE = 'https://www.alphavantage.co/query?function='
 
 class AlphaScraper():
 
-    def __init__(self, wait=True, max_api_requests_per_min=75):
-        self.api_key = os.environ.get('ALPHAVANTAGE_API_KEY')
+    def __init__(self, api_key=None, wait=True, max_api_requests_per_min=75):
+        if api_key is None:
+            self.api_key = os.environ.get('ALPHAVANTAGE_API_KEY')
+        else:
+            self.api_key = api_key
         self.wait = wait
         self.max_api_requests_per_min = max_api_requests_per_min
         self.remaining_api_requests = max_api_requests_per_min
