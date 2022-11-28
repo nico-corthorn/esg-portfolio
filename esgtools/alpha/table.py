@@ -5,8 +5,8 @@ import pandas as pd
 from datetime import datetime
 from abc import ABC , abstractmethod
 
-from esgtools.utils import sql_manager, utils, date_utils
-from esgtools.alpha import api
+from utils import sql_manager, utils, date_utils
+from alpha import api
 
 URL_BASE = 'https://www.alphavantage.co/query?function='
 
@@ -16,11 +16,12 @@ class AlphaTable(ABC):
                 table_name: str, 
                 primary_keys: list, 
                 scraper: api.AlphaScraper, 
+                sql_params=None,
                 max_workers=5):
         self.table_name = table_name
         self.primary_keys = primary_keys
         self.scraper = scraper
-        self.sql = sql_manager.ManagerSQL()
+        self.sql = sql_manager.ManagerSQL(sql_params)
         self.max_workers = max_workers
 
 

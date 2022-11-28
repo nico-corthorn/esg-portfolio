@@ -4,15 +4,9 @@ import boto3
 from botocore.exceptions import ClientError
 from ast import literal_eval
 
-# Ugly temporary solution
-try:
-    # works on lambda
-    from utils import sql_manager
-    print("from utils import sql_manager")
-except:
-    # works on pytest (taking esgtools as a package)
-    from esgtools.utils import sql_manager
-    print("from esgtools.utils import sql_manager")
+from utils import sql_manager
+from alpha import api, table
+
 
 def lambda_handler(event, context):
     """Sample pure Lambda function
@@ -50,23 +44,23 @@ def lambda_handler(event, context):
     )
 
     try:
-        get_secret_value_response = client.get_secret_value(
-            SecretId=db_secret_name
-        )
+        db_secret_response = client.get_secret_value(SecretId=db_secret_name)
+        api_secret_response = client.get_secret_value(SecretId=api_secret_name)
     except ClientError as e:
         raise e
 
     # Decrypts secret using the associated KMS key.
-    secret = literal_eval(get_secret_value_response['SecretString'])
+    db_credentials = literal_eval(db_secret_response['SecretString'])
+    api_key = literal_eval(api_secret_response['SecretString'])
 
-    sql = sql_manager.ManagerSQL(secret)
-    query = "SELECT * FROM assets_alpha LIMIT 1"
-    print(sql.select_query(query))
+    alpha_scraper = api.AlphaScraper(api_key=api_key)
+    alpha_assets = table.AlphaTableAssets(
+            "assets_alpha", [], alpha_scraper, sql_params=db_credentials, max_workers=os.cpu_count())
+    alpha_assets.update_all()
 
     return {
         "statusCode": 200,
         "body": json.dumps({
-            "message": "hello world",
-            # "location": ip.text.replace("\n", "")
+            "message": "assets updated",
         }),
     }
