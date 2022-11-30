@@ -4,7 +4,7 @@ import boto3
 from botocore.exceptions import ClientError
 from ast import literal_eval
 
-from utils import sql_manager
+from utils import sql_manager, aws
 from alpha import api, table
 
 
@@ -24,43 +24,33 @@ def lambda_handler(event, context):
         Context doc: https://docs.aws.amazon.com/lambda/latest/dg/python-context-object.html
 
     Returns
-    ------
+    -------
     API Gateway Lambda Proxy Output Format: dict
 
         Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
     """
 
-    db_secret_name = "prod/awsportfolio/key"
-    api_secret_name = "prod/AlphaApi/key"	
-    region_name = "us-east-2"
-
-    print(f"os.cpu_count() = {os.cpu_count()}")
-
-    # Create a Secrets Manager client
-    session = boto3.session.Session()
-    client = session.client(
-        service_name='secretsmanager',
-        region_name=region_name
-    )
-
-    try:
-        db_secret_response = client.get_secret_value(SecretId=db_secret_name)
-        api_secret_response = client.get_secret_value(SecretId=api_secret_name)
-    except ClientError as e:
-        raise e
+    # Inputs
+    size = "compact"
+    symbol = "AMZN"
 
     # Decrypts secret using the associated KMS key.
-    db_credentials = literal_eval(db_secret_response['SecretString'])
-    api_key = literal_eval(api_secret_response['SecretString'])
+    db_credentials = literal_eval(aws.get_secret("prod/awsportfolio/key"))
+    api_key = literal_eval(aws.get_secret("prod/AlphaApi/key"))["ALPHAVANTAGE_API_KEY"]
 
     alpha_scraper = api.AlphaScraper(api_key=api_key)
-    alpha_assets = table.AlphaTableAssets(
-            "assets_alpha", [], alpha_scraper, sql_params=db_credentials, max_workers=os.cpu_count())
-    alpha_assets.update_all()
+    prices_keys = ["symbol", "date"]
+    alpha_prices = table.AlphaTablePrices(
+        "prices_alpha", 
+        prices_keys, 
+        alpha_scraper, 
+        sql_params=db_credentials
+    )
+    alpha_prices.update(symbol, size=size)
 
     return {
         "statusCode": 200,
         "body": json.dumps({
-            "message": "assets updated",
+            "message": "prices updated",
         }),
     }

@@ -22,7 +22,7 @@ Resources:
       Runtime: python3.9
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 600
-      MemorySize: 500
+      MemorySize: 1000
       Architectures:
         - x86_64
       Events:
@@ -31,15 +31,35 @@ Resources:
           Properties:
             Path: /update-assets
             Method: get
+  UpdatePricesFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: esgtools/
+      Handler: update_prices.lambda_handler
+      Runtime: python3.9
+      Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
+      Timeout: 600
+      MemorySize: 500
+      Architectures:
+        - x86_64
+      Events:
+        UpdatePrices:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /update-prices
+            Method: get
 
 
 Outputs:
-  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
-  # Find out more about other implicit resources you can reference within SAM
-  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
   UpdateAssetsApi:
     Description: "API Gateway endpoint URL for Prod stage for Update Assets function"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/update-assets/"
   UpdateAssetsFunction:
     Description: "Update Assets Lambda Function ARN"
     Value: !GetAtt UpdateAssetsFunction.Arn
+  UpdatePricesApi:
+    Description: "API Gateway endpoint URL for Prod stage for Update Prices function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/update-prices/"
+  UpdatePricesFunction:
+    Description: "Update Prices Lambda Function ARN"
+    Value: !GetAtt UpdatePricesFunction.Arn
