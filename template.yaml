@@ -38,8 +38,8 @@ Resources:
       Handler: update_prices.lambda_handler
       Runtime: python3.9
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
-      Timeout: 600
-      MemorySize: 500
+      Timeout: 900
+      MemorySize: 5000
       Architectures:
         - x86_64
       Events:

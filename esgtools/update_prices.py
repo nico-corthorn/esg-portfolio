@@ -4,7 +4,7 @@ import boto3
 from botocore.exceptions import ClientError
 from ast import literal_eval
 
-from utils import sql_manager, aws
+from utils import sql_manager, aws, utils
 from alpha import api, table
 
 
@@ -29,10 +29,36 @@ def lambda_handler(event, context):
 
         Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
     """
+    print("event")
+    print(event)
+    print()
+
+    # Example 
+    # http://127.0.0.1:3000/update-prices?size=compact&symbols=AMZN,AAPL,MSFT&parallel=1
+    # 'queryStringParameters': {'parallel': '1', 'size': 'compact', 'symbols': 'AMZN,AAPL,MSFT'}
+
+    print("event['queryStringParameters']")
+    print(event["queryStringParameters"])
+    print()
 
     # Inputs
-    size = "compact"
-    symbol = "AMZN"
+    inputs = event["queryStringParameters"]
+    if "size" in inputs:
+        size = inputs["size"]
+    else:
+        size = "compact"
+    if "symbols" in inputs:
+        symbols = inputs["symbols"].split(",")
+    else:
+        symbols = []
+    if "parallel" in inputs:
+        parallel = utils.str2bool(inputs["parallel"])
+    else:
+        parallel = False
+
+    print(f"size = {size}")
+    print(f"symbols = {symbols}")
+    print(f"parallel = {parallel}")
 
     # Decrypts secret using the associated KMS key.
     db_credentials = literal_eval(aws.get_secret("prod/awsportfolio/key"))
@@ -46,11 +72,13 @@ def lambda_handler(event, context):
         alpha_scraper, 
         sql_params=db_credentials
     )
-    alpha_prices.update(symbol, size=size)
 
+    if symbols:
+        alpha_prices.update_list(symbols, size=size, parallel=parallel)
+    
     return {
         "statusCode": 200,
         "body": json.dumps({
-            "message": "prices updated",
+            "message": f"prices updated for symbols = {symbols}, size = {size}",
         }),
     }
