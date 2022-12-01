@@ -39,7 +39,7 @@ def lambda_handler(event, context):
     alpha_scraper = api.AlphaScraper(api_key=api_key)
     alpha_assets = table.AlphaTableAssets(
             "assets_alpha", [], alpha_scraper, sql_params=db_credentials, max_workers=os.cpu_count())
-    alpha_assets.update_all()
+    #alpha_assets.update_all()
 
     return {
         "statusCode": 200,

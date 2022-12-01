@@ -17,12 +17,13 @@ class AlphaTable(ABC):
                 primary_keys: list, 
                 scraper: api.AlphaScraper, 
                 sql_params=None,
-                max_workers=5):
+                max_workers=os.cpu_count()):
         self.table_name = table_name
         self.primary_keys = primary_keys
         self.scraper = scraper
         self.sql = sql_manager.ManagerSQL(sql_params)
         self.max_workers = max_workers
+        print(f"Using {self.max_workers} workers")
 
 
     @abstractmethod
@@ -264,19 +265,29 @@ class AlphaTablePrices(AlphaTable):
         """
 
         # Get available assets from db
-        assets = self.get_assets_to_refresh(asset_types, validate)
+        assets = self.get_assets_to_refresh(asset_types)
         if not validate:
             assets = self.filter_assets_by_max_date(
                 assets, self.table_name, "date", date_utils.get_last_business_date)
 
         # Update db prices in parallel
-        args = [(symbol, size) for symbol in assets.symbol]
-        fun = lambda p: self.update(*p)
-        utils.compute(args, fun, max_workers=self.max_workers)
-        #utils.compute_loop(args, fun)  # temporal, for debugging purposes
+        self.update_list(list(assets.symbol), size)
+    
+
+    def update_list(self, symbols:list, size:str, parallel:bool=False):
+
+        print(f"Updating prices for {symbols}")
+        if parallel:
+            args = [(symbol, size) for symbol in symbols]
+            fun = lambda p: self.update(*p)
+            utils.compute(args, fun, max_workers=self.max_workers)
+        else:
+            for symbol in symbols:
+                self.update(symbol, size)
 
 
-    def update(self, symbol, size):
+
+    def update(self, symbol: str, size: str):
 
         print(f'Updating prices for {symbol}')
 
@@ -293,6 +304,8 @@ class AlphaTablePrices(AlphaTable):
                 # Check whether and what to upload
                 should_upload, clean_db_table, api_prices_upload = \
                     self._get_api_prices_to_upload(api_prices, db_prices, size)
+                print(f"should_upload = {should_upload}")
+                print(f"clean_db_table = {clean_db_table}")
 
                 if should_upload:
 
@@ -305,14 +318,16 @@ class AlphaTablePrices(AlphaTable):
 
                         # Clean symbol rows
                         query = f"delete from {self.table_name} where symbol = '{symbol}'"
+                        print(f"Cleaning {symbol}: {query}")
                         self.sql.query(query)
                     else:
-                        date_min = api_prices.date.min()
+                        date_min = api_prices_upload.date.min()
                         query = f"""
                         delete from {self.table_name} 
                         where symbol = '{symbol}'
                             and date >= '{date_min}'
                         """
+                        print(f"Selective cleaning {symbol}: {query}")
                         self.sql.query(query)
 
                     # Upload to database
@@ -391,7 +406,7 @@ class AlphaTablePrices(AlphaTable):
 
     def _get_api_prices_to_upload(
         self, 
-        api_prices: pd.DataFrame, 
+        api_prices_input: pd.DataFrame, 
         db_prices: pd.DataFrame, 
         size: str,
         ):
@@ -401,7 +416,7 @@ class AlphaTablePrices(AlphaTable):
 
             Parameters
             ----------
-            api_prices : pd.DataFrame
+            api_prices_input : pd.DataFrame
                 API data including symbol, close, adjusted_close, etc
             db_prices: pd.DataFrame
                 Data from the database with the same columns as api_prices
@@ -418,6 +433,9 @@ class AlphaTablePrices(AlphaTable):
                 API data that can be directly uploaded to prices_alpha in the db
         """
 
+        # Original df will not be changed
+        api_prices = api_prices_input.copy()
+
         # Check and copy api_prices_input
         assert api_prices.shape[0] > 0
 
@@ -428,19 +446,6 @@ class AlphaTablePrices(AlphaTable):
         assert len(db_symbols) <= 1, f"At most one symbol in db_prices per update. symbols={db_symbols}"
         if len(db_symbols) == 1:
             assert db_symbols == api_symbols
-
-        # Join API and database dates available
-        #api_dates_df = api_prices[['date', 'lud']].rename(columns={'lud': 'lud_api'})
-        #db_dates_df = db_prices[['date', 'lud']].rename(columns={'lud': 'lud_db'})
-        #dates_df = api_dates_df.merge(
-        #    db_dates_df,
-        #    how='outer',
-        #    left_on='date',
-        #    right_on='date'
-        #)
-
-        # Get dates missing in db
-        #db_dates_missing = dates_df[dates_df.lud_db.isnull()].date
 
         db_dates_missing = self.get_db_dates_missing(api_prices, db_prices).date
 

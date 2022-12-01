@@ -1,14 +1,14 @@
 {
   "body": "{\"message\": \"hello world\"}",
-  "resource": "/hello",
-  "path": "/hello",
+  "resource": "/update-prices",
+  "path": "/update-prices",
   "httpMethod": "GET",
   "isBase64Encoded": false,
   "queryStringParameters": {
     "foo": "bar"
   },
   "pathParameters": {
-    "proxy": "/path/to/resource"
+    "proxy": "/update-prices"
   },
   "stageVariables": {
     "baz": "qux"
@@ -53,8 +53,8 @@
       "userAgent": "Custom User Agent String",
       "user": null
     },
-    "path": "/prod/hello",
-    "resourcePath": "/hello",
+    "path": "/prod/update-prices",
+    "resourcePath": "/update-prices",
     "httpMethod": "POST",
     "apiId": "1234567890",
     "protocol": "HTTP/1.1"
