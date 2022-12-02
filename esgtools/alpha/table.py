@@ -264,14 +264,19 @@ class AlphaTablePrices(AlphaTable):
             a price event that adjusts retroactively likely splits and dividends.
         """
 
-        # Get available assets from db
-        assets = self.get_assets_to_refresh(asset_types)
-        if not validate:
-            assets = self.filter_assets_by_max_date(
-                assets, self.table_name, "date", date_utils.get_last_business_date)
+        # Get available assets from db, and potentially apply filter
+        assets = self.get_assets(validate, asset_types)
 
         # Update db prices in parallel
         self.update_list(list(assets.symbol), size)
+    
+
+    def get_assets(self, validate:bool, asset_types:list):
+        assets = self.get_assets_to_refresh(asset_types)
+        if not validate:
+            assets = self.filter_assets_by_max_date(
+                assets, "date", date_utils.get_last_business_date)
+        return assets
     
 
     def update_list(self, symbols:list, size:str, parallel:bool=False):

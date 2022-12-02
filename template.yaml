@@ -22,7 +22,7 @@ Resources:
       Runtime: python3.9
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 600
-      MemorySize: 1000
+      MemorySize: 500
       Architectures:
         - x86_64
       Events:
@@ -30,6 +30,23 @@ Resources:
           Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
           Properties:
             Path: /update-assets
+            Method: get
+  GetAssetsFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: esgtools/
+      Handler: get_assets.lambda_handler
+      Runtime: python3.9
+      Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
+      Timeout: 300
+      MemorySize: 500
+      Architectures:
+        - x86_64
+      Events:
+        UpdatePrices:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /get-assets
             Method: get
   UpdatePricesFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
@@ -39,7 +56,7 @@ Resources:
       Runtime: python3.9
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 900
-      MemorySize: 5000
+      MemorySize: 1000
       Architectures:
         - x86_64
       Events:
@@ -49,7 +66,6 @@ Resources:
             Path: /update-prices
             Method: get
 
-
 Outputs:
   UpdateAssetsApi:
     Description: "API Gateway endpoint URL for Prod stage for Update Assets function"
@@ -57,6 +73,12 @@ Outputs:
   UpdateAssetsFunction:
     Description: "Update Assets Lambda Function ARN"
     Value: !GetAtt UpdateAssetsFunction.Arn
+  GetAssetsApi:
+    Description: "API Gateway endpoint URL for Prod stage for Get Assets function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/get-assets/"
+  GetAssetsFunction:
+    Description: "Get Assets Lambda Function ARN"
+    Value: !GetAtt GetAssetsFunction.Arn
   UpdatePricesApi:
     Description: "API Gateway endpoint URL for Prod stage for Update Prices function"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/update-prices/"
