@@ -34,8 +34,8 @@ def lambda_handler(event, context):
     print()
 
     # Example 
-    # http://127.0.0.1:3000/update-prices?size=compact&symbols=AMZN,AAPL,MSFT
-    # 'queryStringParameters': {'parallel': '1', 'size': 'compact', 'symbols': 'AMZN,AAPL,MSFT'}
+    # http://127.0.0.1:3000/get-assets?ref_table=prices_alpha&group=100
+    # 'queryStringParameters': {'ref_table': 'prices_alpha', 'group': '100'}
 
     print("event['queryStringParameters']")
     print(event["queryStringParameters"])
@@ -43,32 +43,44 @@ def lambda_handler(event, context):
 
     # Inputs
     inputs = event["queryStringParameters"]
-    size = inputs["size"] if "size" in inputs else "compact"
-    symbols = inputs["symbols"].split(",") if "symbols" in inputs else []
-    parallel = utils.str2bool(inputs["parallel"]) if "parallel" in inputs else False
-    print(f"size = {size}")
-    print(f"symbols = {symbols}")
-    print(f"parallel = {parallel}")
+    assert "ref_table" in inputs
+    ref_table = inputs["ref_table"]
+    validate = utils.str2bool(inputs["validate"]) \
+                    if "validate" in inputs else False
+    asset_types = inputs["asset_types"].split(",") \
+                    if "asset_types" in inputs else ["Stock"]
+    group = int(inputs["group"]) if "group" in inputs else 10
+    print(f"ref_table = {ref_table}")
+    print(f"validate = {validate}")
+    print(f"asset_types = {asset_types}")
+    print(f"group = {group}")
 
     # Decrypts secret using the associated KMS key.
     db_credentials = literal_eval(aws.get_secret("prod/awsportfolio/key"))
     api_key = literal_eval(aws.get_secret("prod/AlphaApi/key"))["ALPHAVANTAGE_API_KEY"]
 
     alpha_scraper = api.AlphaScraper(api_key=api_key)
-    prices_keys = ["symbol", "date"]
-    alpha_prices = table.AlphaTablePrices(
-        "prices_alpha", 
-        prices_keys, 
-        alpha_scraper, 
-        sql_params=db_credentials
-    )
 
-    if symbols:
-        alpha_prices.update_list(symbols, size=size, parallel=parallel)
+    assets_sublists = []
+
+    if ref_table == "prices_alpha":
+        keys = ["symbol", "date"]
+        alpha_prices = table.AlphaTablePrices(
+            ref_table, 
+            keys,
+            alpha_scraper, 
+            sql_params=db_credentials
+        )
+        assets = alpha_prices.get_assets(validate, asset_types)
+        assets_sublists = [','.join(list(assets.loc[i:i+group].symbol)) \
+                                for i in range(0, len(assets), group)]
     
+    print(assets_sublists)
+
     return {
         "statusCode": 200,
         "body": json.dumps({
-            "message": f"prices updated for symbols = {symbols}, size = {size}",
+            "message": f"returning {len(assets_sublists)} sublists with maximum {group} symbols each",
+            "assets": assets_sublists,
         }),
     }

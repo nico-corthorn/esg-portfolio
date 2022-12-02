@@ -1,5 +1,5 @@
 
-from datetime import date
+import datetime
 from pandas.tseries.offsets import BDay
 from pytz import timezone
 
@@ -21,29 +21,39 @@ def get_last_business_date(asof):
     """
 
     if asof:
+
+        # get datetime.date object
+        if type(asof) is datetime.date:
+            asof_date = asof
+        else:
+            asof_date = asof.date()
+
         # Check whether it is a business day
-        is_business_day = (asof - BDay(1) + BDay(1)).date() == asof.date()
+        is_business_day = (asof_date - BDay(1) + BDay(1)).date() == asof_date
 
         # Check whether stock market is closed in USA
-        time_eastern = asof.astimezone(timezone('US/Eastern'))
-        is_after_4_pm = time_eastern.hour >= 16
+        if type(asof) is datetime.datetime:
+            time_eastern = asof.astimezone(timezone('US/Eastern'))
+            is_after_4_pm = time_eastern.hour >= 16
+        else:
+            is_after_4_pm = True
 
         # If weekday and after 4 pm ET
         if is_business_day and is_after_4_pm:
-            return asof.date()
+            return asof_date
 
         # If weekend, holiday or before 4 pm then return last business day
-        return (asof.date() - BDay(1)).date()
+        return (asof_date - BDay(1)).date()
     return None
 
 
 def get_last_quarter_date(asof):
     if asof:
         if asof.month < 4:
-            return date(asof.year - 1, 12, 31)
+            return datetime.date(asof.year - 1, 12, 31)
         elif asof.month < 7:
-            return date(asof.year, 3, 31)
+            return datetime.date(asof.year, 3, 31)
         elif asof.month < 10:
-            return date(asof.year, 6, 30)
-        return date(asof.year, 9, 30)
+            return datetime.date(asof.year, 6, 30)
+        return datetime.date(asof.year, 9, 30)
     return None
