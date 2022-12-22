@@ -36,6 +36,7 @@ def lambda_handler(event, context):
     # Example 
     # http://127.0.0.1:3000/get-assets?ref_table=prices_alpha&group=100
     # 'queryStringParameters': {'ref_table': 'prices_alpha', 'group': '100'}
+    # {"queryStringParameters": {"ref_table": "prices_alpha", "group": "100"}}
 
     print("event['queryStringParameters']")
     print(event["queryStringParameters"])
@@ -72,7 +73,7 @@ def lambda_handler(event, context):
             sql_params=db_credentials
         )
         assets = alpha_prices.get_assets(validate, asset_types)
-        assets_sublists = [','.join(list(assets.loc[i:i+group].symbol)) \
+        assets_sublists = [{"symbols": ','.join(list(assets.loc[i:i+group].symbol))} \
                                 for i in range(0, len(assets), group)]
     
     print(assets_sublists)
@@ -81,6 +82,6 @@ def lambda_handler(event, context):
         "statusCode": 200,
         "body": json.dumps({
             "message": f"returning {len(assets_sublists)} sublists with maximum {group} symbols each",
-            "assets": assets_sublists,
         }),
+        "assets": assets_sublists,
     }

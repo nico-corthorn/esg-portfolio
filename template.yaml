@@ -14,6 +14,19 @@ Globals:
     TracingEnabled: True
 
 Resources:
+  UpdatePricesStateMachine:
+    Type: AWS::Serverless::StateMachine # More info about State Machine Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-statemachine.html
+    Properties:
+      DefinitionUri: statemachine/update_all_prices.asl.json
+      DefinitionSubstitutions:
+        GetAssetsFunctionArn: !GetAtt GetAssetsFunction.Arn
+        UpdatePricesFunctionArn: !GetAtt UpdatePricesFunction.Arn
+      Policies: # Find out more about SAM policy templates: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-templates.html
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GetAssetsFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref UpdatePricesFunction
+
   UpdateAssetsFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
@@ -31,6 +44,7 @@ Resources:
           Properties:
             Path: /update-assets
             Method: get
+  
   GetAssetsFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
@@ -48,6 +62,7 @@ Resources:
           Properties:
             Path: /get-assets
             Method: get
+  
   UpdatePricesFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
@@ -66,7 +81,17 @@ Resources:
             Path: /update-prices
             Method: get
 
+
 Outputs:
+  UpdatePricesStateMachineApi:
+    Description: "API Gateway endpoint URL for Prod stage for Update Assets state machine"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/update-all-prices/"
+  UpdatePricesStateMachineRoleArn:
+    Description: "IAM Role created for Update Prices State machine based on the specified SAM Policy Templates"
+    Value: !GetAtt UpdatePricesStateMachineRole.Arn
+  UpdatePricesStateMachine:
+    Description: "Update Prices State Machine ARN"
+    Value: !GetAtt UpdatePricesStateMachine.Arn
   UpdateAssetsApi:
     Description: "API Gateway endpoint URL for Prod stage for Update Assets function"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/update-assets/"

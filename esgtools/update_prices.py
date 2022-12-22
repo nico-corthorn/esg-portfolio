@@ -37,12 +37,16 @@ def lambda_handler(event, context):
     # http://127.0.0.1:3000/update-prices?size=compact&symbols=AMZN,AAPL,MSFT
     # 'queryStringParameters': {'parallel': '1', 'size': 'compact', 'symbols': 'AMZN,AAPL,MSFT'}
 
-    print("event['queryStringParameters']")
-    print(event["queryStringParameters"])
-    print()
-
     # Inputs
-    inputs = event["queryStringParameters"]
+    if 'queryStringParameters' in event:
+        print("event['queryStringParameters']")
+        print(event["queryStringParameters"])
+        print()
+        inputs = event["queryStringParameters"]
+    else:
+        inputs = event
+
+    # Gather parameters
     size = inputs["size"] if "size" in inputs else "compact"
     symbols = inputs["symbols"].split(",") if "symbols" in inputs else []
     parallel = utils.str2bool(inputs["parallel"]) if "parallel" in inputs else False
