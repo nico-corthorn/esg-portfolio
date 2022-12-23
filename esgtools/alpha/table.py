@@ -276,6 +276,7 @@ class AlphaTablePrices(AlphaTable):
         if not validate:
             assets = self.filter_assets_by_max_date(
                 assets, "date", date_utils.get_last_business_date)
+        assets = assets.reset_index(drop=True)
         return assets
     
 

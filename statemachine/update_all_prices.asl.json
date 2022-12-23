@@ -10,7 +10,8 @@
         "Update Prices Map": {
             "Type": "Map",
             "ItemsPath": "$.assets",
-            "MaxConcurrency": 100,
+            "MaxConcurrency": 10,
+            "ToleratedFailureCount": 10,
             "Iterator":
             {
                 "StartAt": "Update Prices",
