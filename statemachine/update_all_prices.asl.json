@@ -1,0 +1,29 @@
+{
+    "Comment": "A state machine that updates prices.",
+    "StartAt": "Get Assets",
+    "States": {
+        "Get Assets": {
+            "Type": "Task",
+            "Resource": "${GetAssetsFunctionArn}",
+            "Next": "Update Prices Map"
+        },
+        "Update Prices Map": {
+            "Type": "Map",
+            "ItemsPath": "$.assets",
+            "MaxConcurrency": 10,
+            "ToleratedFailureCount": 10,
+            "Iterator":
+            {
+                "StartAt": "Update Prices",
+                "States": {
+                    "Update Prices": {
+                        "Type": "Task",
+                        "Resource": "${UpdatePricesFunctionArn}",
+                        "End": true
+                    }
+                }
+            },
+            "End": true
+        }
+    }
+}
