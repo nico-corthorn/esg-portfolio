@@ -41,10 +41,17 @@ def filter_elements_config(df, params, suffix=''):
     return data
 
 
-def camel_to_snake(name):
+def camel_to_snake(name: str):
     name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
 
 
-def str2bool(v):
+def str2bool(v: str):
   return v.lower() in ("yes", "true", "t", "1")
+
+def is_number(s: str):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False

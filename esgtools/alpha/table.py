@@ -292,7 +292,6 @@ class AlphaTablePrices(AlphaTable):
                 self.update(symbol, size)
 
 
-
     def update(self, symbol: str, size: str):
 
         print(f'Updating prices for {symbol}')
@@ -503,7 +502,8 @@ class AlphaTablePrices(AlphaTable):
             date_upload = db_dates_valid.date.max()
 
             # Check if prices and coefficients are the same in date_upload
-            cols_equal = ['symbol', 'date', 'close', 'adjusted_close', 'dividend_amount', 'split_coefficient']
+            cols_equal = ['symbol', 'date', 'close', 'adjusted_close', 'dividend_amount', 
+                          'split_coefficient']
             db_cond = db_prices.date == date_upload
             api_cond = api_prices.date == date_upload
             db_prices_row = db_prices.loc[db_cond, cols_equal].reset_index(drop=True)
@@ -570,20 +570,38 @@ class AlphaTableAccounting(AlphaTable):
             ------------
         """
 
-        # Get available assets from db
-        assets = self.get_assets_to_refresh(asset_types)
-        if filter_by_db_date:
-            assets = self.filter_assets_by_max_date(assets, "report_date", date_utils.get_last_quarter_date)
+        # Get available assets from db, and potentially apply filter
+        assets = self.get_assets(validate, asset_types)
 
         # Update db prices in parallel
-        args = [symbol for symbol in assets.symbol]
-        utils.compute(args, self.update, self.max_workers)
-        #utils.compute_loop(args, self.update_balance_symbol)  # temporal, for debugging purposes
+        self.update_list(list(assets.symbol), size)
     
+
+    def get_assets(self, validate:bool, asset_types:list):
+
+        # Get available assets from db
+        assets = self.get_assets_to_refresh(asset_types)
+        if not validate:
+            assets = self.filter_assets_by_max_date(
+                assets, "report_date", date_utils.get_last_quarter_date)
+        assets = assets.reset_index(drop=True)
+        return assets
+    
+
+    def update_list(self, symbols:list, parallel:bool=False):
+
+        print(f"Updating {self.table_name} for {symbols}")
+        if parallel:
+            args = [symbol for symbol in symbols]
+            utils.compute(args, self.update, max_workers=self.max_workers)
+        else:
+            for symbol in symbols:
+                self.update(symbol)
+
 
     def update(self, symbol):
 
-        print(f'Updating balance for {symbol}')
+        print(f'Updating {self.table_name} for {symbol}')
 
         # Get API balance
         api_balance = self.get_api_data(symbol)
@@ -608,7 +626,7 @@ class AlphaTableAccounting(AlphaTable):
 
                     # Upload to database
                     assert api_balance.shape[0] > 0
-                    print(f'Uploading {api_balance.shape[0]} dates for {symbol}')
+                    print(f'Uploading {api_balance.shape[0]} rows for {symbol}')
                     self.sql.upload_df_chunks(self.table_name, api_balance)
 
                 else:
@@ -639,16 +657,20 @@ class AlphaTableAccounting(AlphaTable):
             download = self.scraper.hit_api(url, symbol=symbol, url_table_name=self.url_table_name)
             data_json = download.json()
             
-            final_cols = ['symbol', 'report_type', 'report_date', 'currency', 'account_name', 'account_value']
+            final_cols = ['symbol', 'report_type', 'report_date', 'currency', 'account_name', 
+                          'account_value']
             key_report_map = {
                 'annualReports': 'A',
                 'quarterlyReports': 'Q'
             }
             
-            data_annual = self.wrangle_json(symbol, data_json, 'annualReports', key_report_map, self.accounts, final_cols)
-            data_quarter = self.wrangle_json(symbol, data_json, 'quarterlyReports', key_report_map, self.accounts, final_cols)
+            data_annual = self.wrangle_json(
+                symbol, data_json, 'annualReports', key_report_map, self.accounts, final_cols)
+            data_quarter = self.wrangle_json(
+                symbol, data_json, 'quarterlyReports', key_report_map, self.accounts, final_cols)
             data = data_annual.append(data_quarter)
             data['lud'] = datetime.now()
+            data.drop_duplicates(subset=self.primary_keys, inplace=True)
             return data
 
         except Exception as e:
@@ -664,14 +686,19 @@ class AlphaTableAccounting(AlphaTable):
 
             for report in data_json[key_report]:
                 
-                data_report_lst = [[k, v] for k, v in report.items() if k in accounts]
+                data_report_lst = [[k, int(float(v))] for k, v in report.items() 
+                                    if k in accounts and v != 'None' and utils.is_number(v)]
                 currency = report['reportedCurrency']
                 fiscal_date = report['fiscalDateEnding']
                 data_report = pd.DataFrame(data_report_lst, columns=['account_name', 'account_value'])
                 data_report['symbol'] = symbol
                 data_report['report_type'] = key_report_map[key_report]
                 data_report['report_date'] = fiscal_date
-                data_report['currency'] = currency
+                if len(currency) <= 3:
+                    data_report['currency'] = currency
+                else:
+                    # Includes case when currency = 'None'
+                    data_report['currency'] = ''
                 data_report = data_report[final_cols]
                 data = data.append(data_report)
 

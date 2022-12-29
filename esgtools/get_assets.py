@@ -75,6 +75,41 @@ def lambda_handler(event, context):
         assets = alpha_prices.get_assets(validate, asset_types)
         assets_sublists = [{"symbols": ','.join(list(assets.loc[i:i+group].symbol))} \
                                 for i in range(0, len(assets), group)]
+    else:
+        accounting_keys = ["symbol", "report_type", "report_date", "currency", "account_name"]
+        balance_accounts = ['totalAssets', 'commonStock', 'commonStockSharesOutstanding']
+        alpha_balance = table.AlphaTableAccounting(
+            "balance_alpha", 
+            "BALANCE_SHEET", 
+            accounting_keys, 
+            alpha_scraper, 
+            balance_accounts,
+            sql_params=db_credentials
+        )
+        income_accounts = ['netIncome']
+        alpha_income = table.AlphaTableAccounting(
+            "income_alpha", 
+            "INCOME_STATEMENT", 
+            accounting_keys, 
+            alpha_scraper, 
+            income_accounts,
+            sql_params=db_credentials
+        )
+        if ref_table == "balance_alpha":
+            assets = alpha_balance.get_assets(validate, asset_types)
+            assets_sublists = [{"symbols": ','.join(list(assets.loc[i:i+group].symbol))} \
+                                    for i in range(0, len(assets), group)]
+        elif ref_table == "income_alpha":
+            assets = alpha_income.get_assets(validate, asset_types)
+            assets_sublists = [{"symbols": ','.join(list(assets.loc[i:i+group].symbol))} \
+                                    for i in range(0, len(assets), group)]
+        elif ref_table == "accounting":
+            assets_balance = alpha_balance.get_assets(validate, asset_types)
+            assets_income = alpha_income.get_assets(validate, asset_types)
+            assets = list(set(assets_balance.symbol).union(set(assets_income.symbol)))
+            assets.sort()
+            assets_sublists = [{"symbols": ','.join(list(assets[i:i+group]))} \
+                                    for i in range(0, len(assets), group)]
     
     print(assets_sublists)
 

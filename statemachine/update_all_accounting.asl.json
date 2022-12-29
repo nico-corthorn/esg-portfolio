@@ -1,0 +1,42 @@
+{
+    "Comment": "A state machine that updates prices.",
+    "StartAt": "Get Assets",
+    "States": {
+        "Get Assets": {
+            "Type": "Task",
+            "Resource": "${GetAssetsFunctionArn}",
+            "Next": "Update Accounting Map"
+        },
+        "Update Accounting Map": {
+            "Type": "Map",
+            "ItemsPath": "$.assets",
+            "MaxConcurrency": 10,
+            "ToleratedFailureCount": 10,
+            "Iterator":
+            {
+                "StartAt": "Update Accounting",
+                "States": {
+                    "Update Accounting": {
+                        "Type": "Task",
+                        "Resource": "${UpdateAccountingFunctionArn}",
+                        "Catch": [
+                            {
+                                "ErrorEquals": [
+                                "Exception"
+                                ],
+                                "Next": "Handle mapper error",
+                                "ResultPath": "$.error"
+                            }
+                          ],
+                        "End": true
+                    },
+                    "Handle mapper error": {
+                        "Type": "Pass",
+                        "End": true
+                      }
+                }              
+            },
+            "End": true
+        }
+    }
+}
