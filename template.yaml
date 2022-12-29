@@ -27,6 +27,19 @@ Resources:
         - LambdaInvokePolicy:
             FunctionName: !Ref UpdatePricesFunction
 
+  UpdateAccountingStateMachine:
+    Type: AWS::Serverless::StateMachine # More info about State Machine Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-statemachine.html
+    Properties:
+      DefinitionUri: statemachine/update_all_accounting.asl.json
+      DefinitionSubstitutions:
+        GetAssetsFunctionArn: !GetAtt GetAssetsFunction.Arn
+        UpdateAccountingFunctionArn: !GetAtt UpdateAccountingFunction.Arn
+      Policies: # Find out more about SAM policy templates: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-templates.html
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GetAssetsFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref UpdateAccountingFunction
+
   UpdateAssetsFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
@@ -81,6 +94,24 @@ Resources:
             Path: /update-prices
             Method: get
 
+  UpdateAccountingFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: esgtools/
+      Handler: update_accounting.lambda_handler
+      Runtime: python3.9
+      Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
+      Timeout: 900
+      MemorySize: 1000
+      Architectures:
+        - x86_64
+      Events:
+        UpdatePrices:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /update-accounting
+            Method: get
+
 
 Outputs:
   UpdatePricesStateMachineApi:
@@ -92,6 +123,15 @@ Outputs:
   UpdatePricesStateMachine:
     Description: "Update Prices State Machine ARN"
     Value: !GetAtt UpdatePricesStateMachine.Arn
+  UpdateAccountingStateMachineApi:
+    Description: "API Gateway endpoint URL for Prod stage for Update Assets state machine"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/update-all-accounting/"
+  UpdateAccountingStateMachineRoleArn:
+    Description: "IAM Role created for Update Accounting State machine based on the specified SAM Policy Templates"
+    Value: !GetAtt UpdateAccountingStateMachineRole.Arn
+  UpdateAccountingStateMachine:
+    Description: "Update Accounting State Machine ARN"
+    Value: !GetAtt UpdateAccountingStateMachine.Arn
   UpdateAssetsApi:
     Description: "API Gateway endpoint URL for Prod stage for Update Assets function"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/update-assets/"
