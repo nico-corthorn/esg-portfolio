@@ -12,6 +12,7 @@
             "ItemsPath": "$.assets",
             "MaxConcurrency": 10,
             "ToleratedFailureCount": 10,
+            "ToleratedFailurePercentage": 0.5,
             "Iterator":
             {
                 "StartAt": "Update Accounting",

@@ -157,7 +157,7 @@ class AlphaTableAssets(AlphaTable):
         
         # Download listing status
         data = self.get_api_data(date_input)
-                
+        
         # Update assets_table
         self.sql.clean_table(self.table_name)
         self.sql.upload_df_chunks(self.table_name, data)
@@ -179,6 +179,9 @@ class AlphaTableAssets(AlphaTable):
         
         # Fix missing values in delisting_date column
         data.loc[data.delisting_date == 'null', 'delisting_date'] = None
+
+        # Include lud
+        data['lud'] = datetime.now()
         
         return data
 

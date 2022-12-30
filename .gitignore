@@ -140,3 +140,6 @@ dmypy.json
 # SAM
 samconfig.toml
 .aws-sam/
+
+# WRDS
+db/wrds/
