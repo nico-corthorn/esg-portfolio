@@ -9,5 +9,6 @@ CREATE TABLE assets_alpha
 	asset_type varchar(20) NOT NULL,
 	ipo_date date NOT NULL,
 	delisting_date date NULL,
-	status varchar(20) NOT NULL
+	status varchar(20) NOT NULL,
+	lud timestamp NOT NULL
 )
