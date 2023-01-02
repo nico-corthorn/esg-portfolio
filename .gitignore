@@ -143,3 +143,7 @@ samconfig.toml
 
 # Data
 db/data/
+db/viewer.ipynb
+
+# WRDS solutions
+esgtools/wrds
