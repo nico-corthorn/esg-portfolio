@@ -80,3 +80,4 @@ CREATE TABLE ratios_wrds
 	TICKER varchar(20),
 	cusip varchar(20)
 )
+
