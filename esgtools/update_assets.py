@@ -5,7 +5,7 @@ from botocore.exceptions import ClientError
 from ast import literal_eval
 
 from utils import sql_manager, aws
-from alpha import api, table
+from alpha import api, table, merge
 
 
 def lambda_handler(event, context):
@@ -40,6 +40,9 @@ def lambda_handler(event, context):
     alpha_assets = table.AlphaTableAssets(
             "assets_alpha", [], alpha_scraper, sql_params=db_credentials, max_workers=os.cpu_count())
     alpha_assets.update_all()
+
+    merge.merge_alpha_and_wrds_assets(sql_params=db_credentials)
+
 
     return {
         "statusCode": 200,
