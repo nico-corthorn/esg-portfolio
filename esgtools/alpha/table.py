@@ -158,7 +158,7 @@ class AlphaTableAssets(AlphaTable):
         # Download listing status
         data = self.get_api_data(date_input)
         
-        # Update assets_table
+        # Update assets table
         self.sql.clean_table(self.table_name)
         self.sql.upload_df_chunks(self.table_name, data)
 

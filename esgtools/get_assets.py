@@ -9,7 +9,7 @@ from alpha import api, table
 
 
 def lambda_handler(event, context):
-    """Sample pure Lambda function
+    """Get asset symbols that need to be refreshed
 
     Parameters
     ----------

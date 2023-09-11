@@ -63,3 +63,4 @@ CREATE TABLE prices_wrds
 	DisPERMNO varchar(20), -- int
 	DisPERMCO varchar(20) -- int
 )
+
