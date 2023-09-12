@@ -64,3 +64,6 @@ CREATE TABLE prices_wrds
 	DisPERMCO varchar(20) -- int
 )
 
+CREATE INDEX IF NOT EXISTS prices_wrds_idx_date ON prices_wrds(dlycaldt);
+
+
