@@ -1,6 +1,7 @@
 
 import os
 import csv
+import numpy as np
 import pandas as pd
 from datetime import datetime
 from abc import ABC , abstractmethod
@@ -347,7 +348,6 @@ class AlphaTablePrices(AlphaTable):
 
                     print(f'Database already up to date for {symbol}')
 
-
     def get_api_data(self, symbol, size='full'):
         """Hit AlphaVantage API to get prices of symbol
 
@@ -529,6 +529,128 @@ class AlphaTablePrices(AlphaTable):
                 return should_upload, clean_db_table, api_prices
 
         return should_upload, clean_db_table, api_prices
+
+
+
+class AlphaTablePricesMonthly(ABC):
+
+    def __init__(self,
+                table_name: str,
+                sql_params=None,
+                max_workers=os.cpu_count()):
+        self.table_name = table_name
+        self.sql = sql_manager.ManagerSQL(sql_params)
+        self.max_workers = max_workers
+        print(f"Using {self.max_workers} workers")
+
+
+    def update_all(self, asset_types:list = ['Stock']):
+
+        # Get available assets from db, and potentially apply filter
+        assets = self.get_assets(validate, asset_types)
+
+        # Update db prices in parallel
+        self.update_list(list(assets.symbol))
+    
+
+    def get_assets(self, asset_types:list):
+        assets = self.get_assets_to_refresh(asset_types)
+        assets = assets.reset_index(drop=True)
+        return assets
+    
+
+    def update_list(self, symbols:list, parallel:bool=False):
+
+        print(f"Updating prices for {symbols}")
+        if parallel:
+            args = symbols
+            fun = lambda p: self.update(*p)
+            utils.compute(args, fun, max_workers=self.max_workers)
+        else:
+            for symbol in symbols:
+                self.update(symbol, size)
+
+
+    def update(self, symbol: str):
+
+        print(f'Updating monthly prices for {symbol}')
+
+        # Get daily prices
+        prices_daily = self.sql.select_query(f"select * from prices_alpha where symbol = '{symbol}'")
+
+        if prices_daily.shape[0] > 0:
+
+            prices_monthly = self._get_prices_monthly(prices_daily)
+
+            if prices_monthly.shape[0] > 0:
+
+                # Clean symbol in monthly table
+                delete_query = f"delete from {self.table_name} where symbol = '{symbol}'"
+                self.sql.query(delete_query)
+
+                # Upload to database
+                print(f'Uploading {prices_monthly.shape[0]} months for {symbol}')
+                self.sql.upload_df_chunks(self.table_name, prices_monthly)
+
+            else:
+                print(f'No valid monthly prices can be computed for {symbol}')
+
+        else:
+            print(f'No daily prices found for {symbol}')
+
+
+    def _get_prices_monthly(self, prices_daily):
+
+        # Compute monthly 
+        prices_daily["date"] = pd.to_datetime(prices_daily.date)
+        prices_daily = prices_daily.sort_values(by=["symbol", "date"])
+        prices_daily["previous_adjusted_close"] = prices_daily.groupby("symbol")["adjusted_close"].shift(1)
+        prices_daily["daily_return"] = prices_daily.adjusted_close / prices_daily.previous_adjusted_close - 1
+        prices_daily['daily_cont_return'] = np.log(1 + prices_daily.daily_return)
+        agg_map = {
+            "volume": np.sum,
+            "daily_cont_return": np.sum,
+            "daily_return": np.std,
+            "symbol": len
+        }
+        agg_rename = {
+            "volume": "monthly_volume",
+            "daily_cont_return": "monthly_cont_return",
+            "daily_return": "monthly_return_std",
+            "symbol": "day_count"
+        }
+
+        # Last monthly values
+        prices_monthly_last = prices_daily.set_index('date').groupby('symbol').resample('BM').last()
+
+        # Aggregate monthly values
+        prices_monthly_agg = (
+            prices_daily
+                .set_index("date")
+                .groupby("symbol")
+                .resample("BM")
+                .agg(agg_map)
+                .rename(columns=agg_rename)
+        )
+        prices_monthly_agg['monthly_return'] = np.exp(prices_monthly_agg['monthly_cont_return']) - 1
+
+        # Join monthly values
+        prices_monthly = (
+            prices_monthly_last
+                .join(prices_monthly_agg)
+        )
+
+        # Format and filter columns
+        prices_monthly.rename(columns={"lud": "source_lud"}, inplace=True)
+        prices_monthly["lud"] = datetime.now()
+        prices_monthly = prices_monthly.drop(columns="symbol").reset_index()
+        cols = ["symbol", "date", "open", "high", "low", "close", "adjusted_close", "monthly_volume", "monthly_return_std", "monthly_return", "day_count", "source_lud", "lud"]
+        missing_data_cond = prices_monthly.adjusted_close.isnull()
+        one_record_cond = (prices_monthly.day_count == 1) & (prices_monthly.monthly_return == 0)
+        prices_monthly = prices_monthly.loc[~missing_data_cond & ~one_record_cond, cols].copy()
+
+        return prices_monthly
+
 
 
 class AlphaTableAccounting(AlphaTable):

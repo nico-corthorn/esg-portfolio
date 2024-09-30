@@ -1,7 +1,7 @@
 
 from datetime import datetime
 from esgtools.alpha import api, table
-
+from esgtools.consolidation import merge
 
 def main():
     print("Starting scraper!")
@@ -17,7 +17,7 @@ def main():
     #alpha_prices.update("AAPL", size=size)
 
     # Accounting tables
-    accounting_keys = ["symbol", "report_type", "report_date", "currency", "account_name"]
+    #accounting_keys = ["symbol", "report_type", "report_date", "currency", "account_name"]
 
     # Balance
     #balance_accounts = ['totalAssets', 'commonStock', 'commonStockSharesOutstanding']
@@ -25,10 +25,17 @@ def main():
     #alpha_balance.update("AAPL")
 
     # Income
-    income_accounts = ['netIncome']
-    alpha_income = table.AlphaTableAccounting("income_alpha", "INCOME_STATEMENT", accounting_keys, alpha_scraper, income_accounts)
+    #income_accounts = ['netIncome']
+    #alpha_income = table.AlphaTableAccounting("income_alpha", "INCOME_STATEMENT", accounting_keys, alpha_scraper, income_accounts)
     #alpha_income.update("AAPL")
-    alpha_income.update_all()
+    #alpha_income.update_all()
+
+    # Prices monthly
+    alpha_prices_monthly = table.AlphaTablePricesMonthly("prices_alpha_monthly")
+    alpha_prices_monthly.update("AAPL")
+
+    # Consolidation
+    #merge.update_prices_alpha_monthly()
 
     print("Done!")
 
