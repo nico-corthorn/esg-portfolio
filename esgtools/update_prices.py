@@ -63,6 +63,10 @@ def lambda_handler(event, context):
         alpha_scraper, 
         sql_params=db_credentials
     )
+    alpha_prices_monthly = table.AlphaTablePricesMonthly(
+        "prices_alpha_monthly",
+        sql_params=db_credentials
+    )
 
     if symbols:
         alpha_prices.update_list(symbols, size=size, parallel=parallel)
@@ -71,6 +75,6 @@ def lambda_handler(event, context):
     return {
         "statusCode": 200,
         "body": json.dumps({
-            "message": f"prices updated for symbols = {symbols}, size = {size}",
+            "message": f"Daily and monthly prices updated for symbols = {symbols}, size = {size}",
         }),
     }
