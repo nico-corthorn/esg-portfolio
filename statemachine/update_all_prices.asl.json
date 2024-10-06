@@ -23,6 +23,11 @@
                     }
                 }
             },
+            "Next": "Update Returns Monthly"
+        },
+        "Update Returns Monthly": {
+            "Type": "Task",
+            "Resource": "${UpdateReturnsMonthlyFunctionArn}",
             "End": true
         }
     }

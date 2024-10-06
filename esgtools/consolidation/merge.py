@@ -62,63 +62,67 @@ and a.symbol = w.ticker
     sql.query(query)
 
 
-def update_prices_alpha_monthly(sql_params=None):
-	sql = sql_manager.ManagerSQL(sql_params)
-	alpha_prices = sql.select_query("select * from prices_alpha;")
+def merge_alpha_and_wrds_returns(sql_params=None):
 
-	# Compute monthly 
-	alpha_prices["date"] = pd.to_datetime(alpha_prices.date)
-	alpha_prices = alpha_prices.sort_values(by=["symbol", "date"])
-	alpha_prices["previous_adjusted_close"] = alpha_prices.groupby("symbol")["adjusted_close"].shift(1)
-	alpha_prices["daily_return"] = alpha_prices.adjusted_close / alpha_prices.previous_adjusted_close - 1
-	alpha_prices['daily_cont_return'] = np.log(1 + alpha_prices.daily_return)
-	agg_map = {
-		"volume": np.sum,
-		"daily_cont_return": np.sum,
-		"daily_return": np.std,
-		"symbol": len
-	}
-	agg_rename = {
-		"volume": "monthly_volume",
-		"daily_cont_return": "monthly_cont_return",
-		"daily_return": "monthly_return_std",
-		"symbol": "day_count"
-	}
+    sql = sql_manager.ManagerSQL(sql_params)
 
-	# Last monthly values
-	alpha_prices_month_last = alpha_prices.set_index('date').groupby('symbol').resample('BM').last()
+    # Delete table
+    sql.query("drop table if exists returns_monthly")
 
-	# Aggregate monthly values
-	alpha_prices_month_agg = (
-		alpha_prices
-			.set_index("date")
-			.groupby("symbol")
-			.resample("BM")
-			.agg(agg_map)
-			.rename(columns=agg_rename)
-	)
-	alpha_prices_month_agg['monthly_return'] = np.exp(alpha_prices_month_agg['monthly_cont_return']) - 1
+    # Read query for creating prices_monthly table
+    query = """
+create table returns_monthly as
+select 
+	id, symbol, period, date, source
+	, close, adjusted_close, shares_outstanding
+	, monthly_volume, monthly_return_std, monthly_return
+	, row_number() over(partition by id, period order by priority) rnk
+from (
+	select a.id, a.symbol, period, date, source, priority
+	, close, adjusted_close, shares_outstanding
+	, monthly_volume, monthly_return_std, monthly_return
+	from assets a
+	left join (
+		select 
+		permno
+		, to_char(date, 'YYYY-MM') period
+		, cast(date as date) as date
+		, 'WRDS' as source
+		, 0 as priority
+		, price as close
+		, NULL::numeric adjusted_close
+		, shrout shares_outstanding
+		, volume_month as monthly_volume
+		, std_month as monthly_return_std
+		, ret_month as monthly_return
+		from returns_wrds
+	) w
+	on w.permno = a.permno
+	union
+	select a.id, a.symbol, period, date, source, priority
+	, close, adjusted_close, shares_outstanding
+	, monthly_volume, monthly_return_std, monthly_return
+	from assets a
+	left join (
+		select 
+		symbol
+		, to_char(date, 'YYYY-MM') period
+		, date
+		, 'ALPHA' as source
+		, 1 as priority
+		, close
+		, adjusted_close
+		, NULL::numeric shares_outstanding
+		, monthly_volume
+		, monthly_return_std
+		, monthly_return
+		, source_lud
+		from prices_alpha_monthly
+	) v
+	on v.symbol = a.symbol and a.in_alpha = 1
+) a
+where date is not NULL
+	"""
 
-	# Join monthly values
-	alpha_prices_month = (
-		alpha_prices_month_last
-			.join(alpha_prices_month_agg)
-	)
-
-	# Format and filter columns
-	alpha_prices_month.rename(columns={"lud": "source_lud"}, inplace=True)
-	alpha_prices_month["lud"] = datetime.now()
-	alpha_prices_month = alpha_prices_month.drop(columns="symbol").reset_index()
-	cols = ["symbol", "date", "open", "high", "low", "close", "adjusted_close", "monthly_volume", "monthly_return_std", "monthly_return", "day_count", "source_lud", "lud"]
-	missing_data_cond = alpha_prices_month.adjusted_close.isnull()
-	one_record_cond = (alpha_prices_month.day_count == 1) & (alpha_prices_month.monthly_return == 0)
-	alpha_prices_month = alpha_prices_month.loc[~missing_data_cond & ~one_record_cond, cols].copy()
-
-	# Clean table
-	table_name = "prices_alpha_monthly"
-	query = f"delete from {table_name}"
-	sql.query(query)
-
-	# Upload to database
-	sql.upload_df_chunks(table_name, alpha_prices_month)
-
+    # Create prices_montly table
+    sql.query(query)

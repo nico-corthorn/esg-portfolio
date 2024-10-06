@@ -31,23 +31,15 @@ def lambda_handler(event, context):
         Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
     """
 
-    print(f"os.cpu_count() = {os.cpu_count()}")
-
     # Decrypts secret using the associated KMS key.
     db_credentials = literal_eval(aws.get_secret("prod/awsportfolio/key"))
-    api_key = literal_eval(aws.get_secret("prod/AlphaApi/key"))["ALPHAVANTAGE_API_KEY"]
 
-    alpha_scraper = api.AlphaScraper(api_key=api_key)
-    alpha_assets = table.AlphaTableAssets(
-            "assets_alpha", [], alpha_scraper, sql_params=db_credentials, max_workers=os.cpu_count())
-    alpha_assets.update_all()
-
-    merge.merge_alpha_and_wrds_assets(sql_params=db_credentials)
-
+    # Merge and update returns_monthly
+    merge.merge_alpha_and_wrds_returns(sql_params=db_credentials)
 
     return {
         "statusCode": 200,
         "body": json.dumps({
-            "message": "assets updated",
+            "message": "returns_monthly updated",
         }),
     }

@@ -21,6 +21,7 @@ Resources:
       DefinitionSubstitutions:
         GetAssetsFunctionArn: !GetAtt GetAssetsFunction.Arn
         UpdatePricesFunctionArn: !GetAtt UpdatePricesFunction.Arn
+        UpdateReturnsMonthlyFunctionArn: !GetAtt UpdateReturnsMonthlyFunction.Arn
       Policies: # Find out more about SAM policy templates: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-templates.html
         - LambdaInvokePolicy:
             FunctionName: !Ref GetAssetsFunction
@@ -57,7 +58,7 @@ Resources:
           Properties:
             Path: /update-assets
             Method: get
-  
+
   GetAssetsFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
@@ -92,6 +93,24 @@ Resources:
           Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
           Properties:
             Path: /update-prices
+            Method: get
+
+  UpdateReturnsMonthlyFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: esgtools/
+      Handler: update_returns_monthly.lambda_handler
+      Runtime: python3.9
+      Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
+      Timeout: 300
+      MemorySize: 500
+      Architectures:
+        - x86_64
+      Events:
+        UpdatePrices:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /update-returns-monthly
             Method: get
 
   UpdateAccountingFunction:
@@ -150,3 +169,9 @@ Outputs:
   UpdatePricesFunction:
     Description: "Update Prices Lambda Function ARN"
     Value: !GetAtt UpdatePricesFunction.Arn
+  UpdateReturnsMonthlyApi:
+    Description: "API Gateway endpoint URL for Prod stage for Update Prices function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/update-returns-monthly/"
+  UpdateReturnsMonthlyFunction:
+    Description: "Update Returns Monthly Lambda Function ARN"
+    Value: !GetAtt UpdateReturnsMonthlyFunction.Arn

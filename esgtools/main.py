@@ -31,11 +31,12 @@ def main():
     #alpha_income.update_all()
 
     # Prices monthly
-    alpha_prices_monthly = table.AlphaTablePricesMonthly("prices_alpha_monthly")
-    alpha_prices_monthly.update("AAPL")
+    #alpha_prices_monthly = table.AlphaTablePricesMonthly("prices_alpha_monthly")
+    #alpha_prices_monthly.update("AAPL")
 
     # Consolidation
     #merge.update_prices_alpha_monthly()
+    merge.merge_alpha_and_wrds_returns()
 
     print("Done!")
 

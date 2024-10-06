@@ -39,9 +39,6 @@ def lambda_handler(event, context):
 
     # Inputs
     if 'queryStringParameters' in event:
-        print("event['queryStringParameters']")
-        print(event["queryStringParameters"])
-        print()
         inputs = event["queryStringParameters"]
     else:
         inputs = event
@@ -69,7 +66,8 @@ def lambda_handler(event, context):
 
     if symbols:
         alpha_prices.update_list(symbols, size=size, parallel=parallel)
-    
+        alpha_prices_monthly.update_list(symbols, parallel=parallel)
+
     return {
         "statusCode": 200,
         "body": json.dumps({

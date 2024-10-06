@@ -1,4 +1,4 @@
-
+--DROP TABLE prices_alpha_monthly;
 CREATE TABLE prices_alpha_monthly
 (
 	symbol varchar(20) NOT NULL,
@@ -11,10 +11,11 @@ CREATE TABLE prices_alpha_monthly
 	monthly_volume numeric(14,0),
     monthly_return_std float,
     monthly_return float,
-	source_lud timestamp NOT NULL,
+	day_count int,
+	source_lud timestamp,
 	lud timestamp NOT NULL,
 	PRIMARY KEY (symbol, date)
-)
+);
 
 CREATE INDEX prices_alpha_monthly_symbol_idx ON prices_alpha_monthly (symbol);
 CREATE INDEX prices_alpha_monthly_date_idx ON prices_alpha_monthly (date);

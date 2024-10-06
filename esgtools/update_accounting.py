@@ -39,9 +39,6 @@ def lambda_handler(event, context):
 
     # Inputs
     if 'queryStringParameters' in event:
-        print("event['queryStringParameters']")
-        print(event["queryStringParameters"])
-        print()
         inputs = event["queryStringParameters"]
     else:
         inputs = event

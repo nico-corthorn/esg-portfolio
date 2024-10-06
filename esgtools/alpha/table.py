@@ -353,8 +353,9 @@ class AlphaTablePrices(AlphaTable):
 
                 Parameters
                 ----------
-                date_input : datetime
-                    Date at which the delisting snapshot is taken
+                symbol : str
+                size: str
+                    compact or full
 
                 Returns
                 -------
@@ -564,11 +565,11 @@ class AlphaTablePricesMonthly(ABC):
         print(f"Updating prices for {symbols}")
         if parallel:
             args = symbols
-            fun = lambda p: self.update(*p)
+            fun = lambda p: self.update(p)
             utils.compute(args, fun, max_workers=self.max_workers)
         else:
             for symbol in symbols:
-                self.update(symbol, size)
+                self.update(symbol)
 
 
     def update(self, symbol: str):
@@ -759,7 +760,7 @@ class AlphaTableAccounting(AlphaTable):
             
             else:
                 print(f"api_balance was empty for {symbol}")
-                
+
 
     def get_api_data(self, symbol: str):
         """Hit AlphaVantage API to get balance sheet
