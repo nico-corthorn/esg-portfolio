@@ -12,13 +12,31 @@
             "ItemsPath": "$.assets",
             "MaxConcurrency": 10,
             "ToleratedFailureCount": 10,
-            "Iterator":
-            {
+            "Iterator": {
                 "StartAt": "Update Prices",
                 "States": {
                     "Update Prices": {
                         "Type": "Task",
                         "Resource": "${UpdatePricesFunctionArn}",
+                        "Retry": [
+                            {
+                                "ErrorEquals": ["States.ALL"],
+                                "IntervalSeconds": 60,
+                                "MaxAttempts": 5,
+                                "BackoffRate": 2
+                            }
+                        ],
+                        "Catch": [
+                            {
+                                "ErrorEquals": ["States.ALL"],
+                                "ResultPath": "$.errorInfo",
+                                "Next": "Proceed After Failure"
+                            }
+                        ],
+                        "End": true
+                    },
+                    "Proceed After Failure": {
+                        "Type": "Pass",
                         "End": true
                     }
                 }
