@@ -9,7 +9,7 @@ CREATE TABLE prices_alpha
     low numeric(14,2) NOT NULL,
     close numeric(14,2) NOT NULL,
     adjusted_close numeric(14,2) NULL,
-	volume integer NOT NULL,
+	volume bigint NOT NULL,
     dividend_amount numeric(14,1) NULL,
     split_coefficient numeric(14,1) NULL,
 	lud timestamp NOT NULL,

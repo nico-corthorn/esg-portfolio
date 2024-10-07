@@ -73,7 +73,7 @@ def lambda_handler(event, context):
             sql_params=db_credentials
         )
         assets = alpha_prices.get_assets(validate, asset_types)
-        assets_sublists = [{"symbols": ','.join(list(assets.loc[i:i+group].symbol))} \
+        assets_sublists = [{"symbols": ','.join(list(assets.loc[i:i+group-1].symbol))} \
                                 for i in range(0, len(assets), group)]
     else:
         accounting_keys = ["symbol", "report_type", "report_date", "currency", "account_name"]
