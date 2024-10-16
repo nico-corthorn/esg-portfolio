@@ -9,29 +9,8 @@ from alpha import api, table
 
 
 def lambda_handler(event, context):
-    """Sample pure Lambda function
-
-    Parameters
-    ----------
-    event: dict, required
-        API Gateway Lambda Proxy Input Format
-
-        Event doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
-
-    context: object, required
-        Lambda Context runtime methods and attributes
-
-        Context doc: https://docs.aws.amazon.com/lambda/latest/dg/python-context-object.html
-
-    Returns
-    -------
-    API Gateway Lambda Proxy Output Format: dict
-
-        Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
-    """
-    print("event")
-    print(event)
-    print()
+    """ Update prices_alpha for symbols given in event. """
+    print("event", event)
 
     # Example 
     # http://127.0.0.1:3000/update-prices?size=compact&symbols=AMZN,AAPL,MSFT
@@ -44,9 +23,9 @@ def lambda_handler(event, context):
         inputs = event
 
     # Gather parameters
-    size = inputs["size"] if "size" in inputs else "compact"
+    size = inputs.get("size", "full")
     symbols = inputs["symbols"].split(",") if "symbols" in inputs else []
-    parallel = utils.str2bool(inputs["parallel"]) if "parallel" in inputs else False
+    parallel = utils.str2bool(inputs.get("parallel", "false"))
     print(f"size = {size}")
     print(f"symbols = {symbols}")
     print(f"parallel = {parallel}")
@@ -55,7 +34,7 @@ def lambda_handler(event, context):
     db_credentials = literal_eval(aws.get_secret("prod/awsportfolio/key"))
     api_key = literal_eval(aws.get_secret("prod/AlphaApi/key"))["ALPHAVANTAGE_API_KEY"]
 
-    alpha_scraper = api.AlphaScraper(api_key=api_key)
+    alpha_scraper = api.AlphaScraper(api_key=api_key, wait=False)
     prices_keys = ["symbol", "date"]
     alpha_prices = table.AlphaTablePrices(
         "prices_alpha", 
@@ -63,18 +42,15 @@ def lambda_handler(event, context):
         alpha_scraper, 
         sql_params=db_credentials
     )
-    alpha_prices_monthly = table.AlphaTablePricesMonthly(
-        "prices_alpha_monthly",
-        sql_params=db_credentials
-    )
 
     if symbols:
         alpha_prices.update_list(symbols, size=size, parallel=parallel)
-        alpha_prices_monthly.update_list(symbols, parallel=parallel)
 
     return {
         "statusCode": 200,
         "body": json.dumps({
-            "message": f"Daily and monthly prices updated for symbols = {symbols}, size = {size}",
+            "message": f"Daily prices updated for symbols = {symbols}, size = {size}",
         }),
+        "symbols": ",".join(symbols),
+        "size": size
     }

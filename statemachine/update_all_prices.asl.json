@@ -1,52 +1,115 @@
 {
-    "Comment": "A state machine that updates prices.",
-    "StartAt": "Get Assets",
-    "States": {
-        "Get Assets": {
-            "Type": "Task",
-            "Resource": "${GetAssetsFunctionArn}",
-            "Next": "Update Prices Map"
-        },
-        "Update Prices Map": {
-            "Type": "Map",
-            "ItemsPath": "$.assets",
-            "MaxConcurrency": 10,
-            "ToleratedFailureCount": 10,
-            "Iterator": {
-                "StartAt": "Update Prices",
+  "Comment": "A state machine that updates prices in hourly batches.",
+  "StartAt": "Get Assets",
+  "States": {
+    "Get Assets": {
+      "Type": "Task",
+      "Resource": "${GetAssetsFunctionArn}",
+      "Next": "Process Batches"
+    },
+    "Process Batches": {
+      "Type": "Map",
+      "ItemsPath": "$.assets",
+      "MaxConcurrency": 1,
+      "Iterator": {
+        "StartAt": "Parallel Process and Wait",
+        "States": {
+          "Parallel Process and Wait": {
+            "Type": "Parallel",
+            "Branches": [
+              {
+                "StartAt": "Process Sublists",
                 "States": {
-                    "Update Prices": {
-                        "Type": "Task",
-                        "Resource": "${UpdatePricesFunctionArn}",
-                        "Retry": [
+                  "Process Sublists": {
+                    "Type": "Map",
+                    "ItemsPath": "$",
+                    "MaxConcurrency": 10,
+                    "Iterator": {
+                      "StartAt": "Update Prices",
+                      "States": {
+                        "Update Prices": {
+                          "Type": "Task",
+                          "Resource": "${UpdatePricesAlphaFunctionArn}",
+                          "Parameters": {
+                            "symbols.$": "$.symbols",
+                            "size.$": "$.size",
+                            "parallel": "false"
+                          },
+                          "Retry": [
                             {
-                                "ErrorEquals": ["States.ALL"],
-                                "IntervalSeconds": 60,
-                                "MaxAttempts": 5,
-                                "BackoffRate": 2
+                              "ErrorEquals": ["States.ALL"],
+                              "IntervalSeconds": 60,
+                              "MaxAttempts": 5,
+                              "BackoffRate": 2
                             }
-                        ],
-                        "Catch": [
+                          ],
+                          "Catch": [
                             {
-                                "ErrorEquals": ["States.ALL"],
-                                "ResultPath": "$.errorInfo",
-                                "Next": "Proceed After Failure"
+                              "ErrorEquals": ["States.ALL"],
+                              "ResultPath": "$.errorInfo",
+                              "Next": "Proceed After Failure"
                             }
-                        ],
-                        "End": true
+                          ],
+                          "Next": "Update Prices Monthly"
+                        },
+                        "Update Prices Monthly": {
+                          "Type": "Task",
+                          "Resource": "${UpdatePricesAlphaMonthlyFunctionArn}",
+                          "Parameters": {
+                            "symbols.$": "$.symbols",
+                            "parallel": "false"
+                          },
+                          "Retry": [
+                            {
+                              "ErrorEquals": ["States.ALL"],
+                              "IntervalSeconds": 60,
+                              "MaxAttempts": 5,
+                              "BackoffRate": 2
+                            }
+                          ],
+                          "Catch": [
+                            {
+                              "ErrorEquals": ["States.ALL"],
+                              "ResultPath": "$.errorInfo",
+                              "Next": "Proceed After Failure"
+                            }
+                          ],
+                          "End": true
+                        },
+                        "Proceed After Failure": {
+                          "Type": "Pass",
+                          "End": true
+                        }
+                      }
                     },
-                    "Proceed After Failure": {
-                        "Type": "Pass",
-                        "End": true
-                    }
+                    "End": true
+                  }
                 }
-            },
-            "Next": "Update Returns Monthly"
-        },
-        "Update Returns Monthly": {
-            "Type": "Task",
-            "Resource": "${UpdateReturnsMonthlyFunctionArn}",
-            "End": true
+              },
+              {
+                "StartAt": "Wait One Hour",
+                "States": {
+                  "Wait One Hour": {
+                    "Type": "Wait",
+                    "Seconds": 3600,
+                    "End": true
+                  }
+                }
+              }
+            ],
+            "Next": "Done"
+          },
+          "Done": {
+            "Type": "Succeed"
+          }
         }
+      },
+      "Next": "Update Returns Monthly"
+    },
+    "Update Returns Monthly": {
+      "Type": "Task",
+      "Resource": "${UpdateReturnsMonthlyFunctionArn}",
+      "End": true
     }
+  }
 }
