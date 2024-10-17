@@ -1,5 +1,5 @@
 {
-  "Comment": "A state machine that updates prices in hourly batches.",
+  "Comment": "A state machine that updates prices in hourly batches, skipping the wait for the last batch.",
   "StartAt": "Get Assets",
   "States": {
     "Get Assets": {
@@ -12,9 +12,9 @@
       "ItemsPath": "$.assets",
       "MaxConcurrency": 1,
       "Iterator": {
-        "StartAt": "Parallel Process and Wait",
+        "StartAt": "Parallel Process and Conditional Wait",
         "States": {
-          "Parallel Process and Wait": {
+          "Parallel Process and Conditional Wait": {
             "Type": "Parallel",
             "Branches": [
               {
@@ -22,7 +22,7 @@
                 "States": {
                   "Process Sublists": {
                     "Type": "Map",
-                    "ItemsPath": "$",
+                    "ItemsPath": "$.batch",
                     "MaxConcurrency": 10,
                     "Iterator": {
                       "StartAt": "Update Prices",
@@ -87,11 +87,26 @@
                 }
               },
               {
-                "StartAt": "Wait One Hour",
+                "StartAt": "Check If Last Batch",
                 "States": {
+                  "Check If Last Batch": {
+                    "Type": "Choice",
+                    "Choices": [
+                      {
+                        "Variable": "$.is_last_batch",
+                        "BooleanEquals": true,
+                        "Next": "Skip Wait"
+                      }
+                    ],
+                    "Default": "Wait One Hour"
+                  },
                   "Wait One Hour": {
                     "Type": "Wait",
                     "Seconds": 3600,
+                    "End": true
+                  },
+                  "Skip Wait": {
+                    "Type": "Pass",
                     "End": true
                   }
                 }

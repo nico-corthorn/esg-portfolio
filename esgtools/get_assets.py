@@ -40,7 +40,6 @@ def lambda_handler(event, context):
     print("event", event)
 
     # Example 
-    # http://127.0.0.1:3000/get-assets?ref_table=prices_alpha&group=100
     # 'queryStringParameters': {'ref_table': 'prices_alpha'}
     # {"queryStringParameters": {"ref_table": "prices_alpha"}}
 
@@ -52,18 +51,17 @@ def lambda_handler(event, context):
     inputs = event["queryStringParameters"]
     assert "ref_table" in inputs
     ref_table = inputs["ref_table"]
-    validate = utils.str2bool(inputs["validate"]) \
-                    if "validate" in inputs else False
-    asset_types = inputs["asset_types"].split(",") \
-                    if "asset_types" in inputs else ["Stock"]
-    #group = int(inputs["group"]) if "group" in inputs else 10
-    max_assets_in_batch = int(inputs["max_assets_in_batch"]) if "max_assets_in_batch" in inputs else 75*60
-    n_lists_in_group = int(inputs["n_lists_in_group"]) if "n_lists_in_group" in inputs else 10
+    validate = utils.str2bool(inputs.get("validate", "false"))
+    asset_types = inputs.get("asset_types", "Stock").split(",")
+    max_assets_in_batch = int(inputs.get("max_assets_in_batch", 75*60))
+    n_lists_in_batch = int(inputs.get("n_lists_in_batch", 10))
+    size = inputs.get("size", "full")
     print(f"ref_table = {ref_table}")
     print(f"validate = {validate}")
     print(f"asset_types = {asset_types}")
     print(f"max_assets_in_batch = {max_assets_in_batch}")
-    print(f"n_lists_in_group = {n_lists_in_group}")
+    print(f"n_lists_in_batch = {n_lists_in_batch}")
+    print(f"size = {size}")
 
     # Decrypts secret using the associated KMS key.
     db_credentials = literal_eval(aws.get_secret("prod/awsportfolio/key"))
@@ -113,18 +111,20 @@ def lambda_handler(event, context):
 
     assets_sublists = []
     if assets.shape[0] > 0:
-        for i in range(0, len(assets), max_assets_in_group):
-            symbols_group: pd.Series = assets.loc[i:i+max_assets_in_group-1].symbol
-            partition_group = np.array_split(symbols_group, n_lists_in_group)
-            assets_sublists.append([{
-                "symbols": ",".join(list(sublist)),
-                "size": size
-            } for sublist in partition_group])
+        total_batches = len(range(0, len(assets), max_assets_in_batch))
+        for i, batch_start in enumerate(range(0, len(assets), max_assets_in_batch)):
+            symbols_batch: pd.Series = assets.loc[batch_start:batch_start+max_assets_in_batch-1].symbol
+            partition_batch = np.array_split(symbols_batch, n_lists_in_batch)
+            is_last_batch = (i == total_batches - 1)
+            assets_sublists.append({
+                "batch": [{"symbols": ",".join(list(sublist)), "size": size} for sublist in partition_batch],
+                "is_last_batch": is_last_batch
+            })
 
     return {
         "statusCode": 200,
         "body": json.dumps({
-            "message": f"Returning {len(assets_sublists)} groups with {n_lists_in_group} sublists each.",
+            "message": f"Returning {len(assets_sublists)} batches with {n_lists_in_batch} sublists each.",
         }),
-        "assets": assets_sublists,
+        "assets": assets_sublists
     }

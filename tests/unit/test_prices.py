@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from esgtools import update_prices
+from esgtools import update_prices_alpha
 
 
 @pytest.fixture()
@@ -68,7 +68,7 @@ def apigw_event():
 
 def test_prices(apigw_event):
 
-    ret = update_prices.lambda_handler(apigw_event, "")
+    ret = update_prices_alpha.lambda_handler(apigw_event, "")
     data = json.loads(ret["body"])
 
     assert ret["statusCode"] == 200
