@@ -13,7 +13,7 @@ def lambda_handler(event, context):
 
     # Example 
     # http://127.0.0.1:3000/update-prices?size=compact&symbols=AMZN,AAPL,MSFT
-    # 'queryStringParameters': {'parallel': '1', 'size': 'compact', 'symbols': 'AMZN,AAPL,MSFT'}
+    # 'queryStringParameters': {'parallel': '1', 'symbols': 'AMZN,AAPL,MSFT'}
 
     # Inputs
     if 'queryStringParameters' in event:

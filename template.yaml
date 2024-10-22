@@ -91,7 +91,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: esgtools/
-      Handler: update_prices_alpha.lambda_handler
+      Handler: update_prices_alpha_monthly.lambda_handler
       Runtime: python3.9
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 900
