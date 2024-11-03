@@ -122,3 +122,27 @@ Resources:
       MemorySize: 1000
       Architectures:
         - x86_64
+
+  UpdateNytArticlesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: esgtools/
+      Handler: update_nyt_articles.lambda_handler
+      Runtime: python3.9
+      Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
+      Timeout: 600
+      MemorySize: 500
+      Architectures:
+        - x86_64
+
+  UpdateNytLinksFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: esgtools/
+      Handler: update_nyt_links.lambda_handler
+      Runtime: python3.9
+      Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
+      Timeout: 600
+      MemorySize: 500
+      Architectures:
+        - x86_64
