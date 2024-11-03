@@ -9,10 +9,34 @@ Globals:
   Function:
     Timeout: 3
     Tracing: Active
+    Runtime: python3.9
+    CodeUri: esgtools/
+    Architectures:
+      - x86_64  
   Api:
     TracingEnabled: True
 
 Resources:
+# Log Groups
+  UpdatePricesStatesLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/vendedlogs/states/UpdatePrices
+      RetentionInDays: 30
+
+  UpdateAccountingStatesLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/vendedlogs/states/UpdateAccounting
+      RetentionInDays: 30
+
+  UpdateNytStatesLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/vendedlogs/states/UpdateNyt
+      RetentionInDays: 30
+
+  # State Machines
   UpdatePricesStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
@@ -31,6 +55,14 @@ Resources:
             FunctionName: !Ref UpdatePricesAlphaMonthlyFunction
         - LambdaInvokePolicy:
             FunctionName: !Ref UpdateReturnsMonthlyFunction
+        - CloudWatchLogsFullAccess
+      Type: STANDARD
+      Logging:
+        Level: ALL
+        IncludeExecutionData: true
+        Destinations:
+          - CloudWatchLogsLogGroup:
+              LogGroupArn: !GetAtt UpdatePricesStatesLogGroup.Arn
 
   UpdateAccountingStateMachine:
     Type: AWS::Serverless::StateMachine
@@ -44,105 +76,177 @@ Resources:
             FunctionName: !Ref GetAssetsFunction
         - LambdaInvokePolicy:
             FunctionName: !Ref UpdateAccountingFunction
+        - CloudWatchLogsFullAccess
+      Type: STANDARD
+      Logging:
+        Level: ALL
+        IncludeExecutionData: true
+        Destinations:
+          - CloudWatchLogsLogGroup:
+              LogGroupArn: !GetAtt UpdateAccountingStatesLogGroup.Arn
 
+  UpdateNytStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      DefinitionUri: statemachine/update_nyt.asl.json
+      DefinitionSubstitutions:
+        UpdateNytArticlesFunctionArn: !GetAtt UpdateNytArticlesFunction.Arn
+        UpdateNytLinksFunctionArn: !GetAtt UpdateNytLinksFunction.Arn
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: !Ref UpdateNytArticlesFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref UpdateNytLinksFunction
+        - CloudWatchLogsFullAccess
+      Type: STANDARD
+      Logging:
+        Level: ALL
+        IncludeExecutionData: true
+        Destinations:
+          - CloudWatchLogsLogGroup:
+              LogGroupArn: !GetAtt UpdateNytStatesLogGroup.Arn
+
+  # Lambdas
   UpdateAssetsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: esgtools/
       Handler: update_assets.lambda_handler
-      Runtime: python3.9
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 600
       MemorySize: 500
-      Architectures:
-        - x86_64
 
   GetAssetsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: esgtools/
       Handler: get_assets.lambda_handler
-      Runtime: python3.9
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 300
       MemorySize: 500
-      Architectures:
-        - x86_64
-      Events:
-        UpdatePrices:
-          Type: Api
-          Properties:
-            Path: /get-assets
-            Method: get
   
   UpdatePricesAlphaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: esgtools/
       Handler: update_prices_alpha.lambda_handler
-      Runtime: python3.9
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 900
       MemorySize: 1000
-      Architectures:
-        - x86_64
 
   UpdatePricesAlphaMonthlyFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: esgtools/
       Handler: update_prices_alpha_monthly.lambda_handler
-      Runtime: python3.9
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 900
       MemorySize: 1000
-      Architectures:
-        - x86_64
 
   UpdateReturnsMonthlyFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: esgtools/
       Handler: update_returns_monthly.lambda_handler
-      Runtime: python3.9
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 300
       MemorySize: 500
-      Architectures:
-        - x86_64
 
   UpdateAccountingFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: esgtools/
       Handler: update_accounting.lambda_handler
-      Runtime: python3.9
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 900
       MemorySize: 1000
-      Architectures:
-        - x86_64
 
   UpdateNytArticlesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: esgtools/
       Handler: update_nyt_articles.lambda_handler
-      Runtime: python3.9
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 600
       MemorySize: 500
-      Architectures:
-        - x86_64
 
   UpdateNytLinksFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: esgtools/
       Handler: update_nyt_links.lambda_handler
-      Runtime: python3.9
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 600
       MemorySize: 500
-      Architectures:
-        - x86_64
+
+# Schedules
+# For UpdatePrices (weekly on Saturday)
+  UpdatePricesScheduleRule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: UpdatePricesWeeklySchedule
+      Description: "Triggers UpdatePrices Step Function every Saturday"
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      ScheduleExpression: "cron(0 0 ? * SAT *)"
+      Target:
+        Arn: !GetAtt UpdatePricesStateMachine.Arn
+        RoleArn: !GetAtt UpdatePricesScheduleRole.Arn
+        Input: |
+          {
+            "queryStringParameters": {
+              "ref_table": "prices_alpha",
+              "size": "compact"
+            }
+          }
+
+  UpdatePricesScheduleRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StepFunctionExecutionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource: !GetAtt UpdatePricesStateMachine.Arn
+
+  # For UpdateNyt (monthly on 2nd)
+  UpdateNytScheduleRule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: UpdateNytMonthlySchedule
+      Description: "Triggers UpdateNyt Step Function on the 2nd day of every month"
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      ScheduleExpression: "cron(0 0 2 * ? *)"
+      Target:
+        Arn: !GetAtt UpdateNytStateMachine.Arn
+        RoleArn: !GetAtt UpdateNytScheduleRole.Arn
+        Input: |
+          {
+            "queryStringParameters": {
+              "year_start": 2024,
+              "clean_table": "False"
+            }
+          }
+  UpdateNytScheduleRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StepFunctionExecutionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource: !GetAtt UpdateNytStateMachine.Arn

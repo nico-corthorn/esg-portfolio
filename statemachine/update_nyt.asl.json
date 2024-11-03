@@ -1,0 +1,32 @@
+{
+    "Comment": "State machine to update NYT articles and links",
+    "StartAt": "UpdateNytArticles",
+    "States": {
+      "UpdateNytArticles": {
+        "Type": "Task",
+        "Resource": "${UpdateNytArticlesFunctionArn}",
+        "Next": "UpdateNytLinks",
+        "Retry": [
+          {
+            "ErrorEquals": ["States.ALL"],
+            "IntervalSeconds": 1,
+            "MaxAttempts": 3,
+            "BackoffRate": 2.0
+          }
+        ]
+      },
+      "UpdateNytLinks": {
+        "Type": "Task",
+        "Resource": "${UpdateNytLinksFunctionArn}",
+        "End": true,
+        "Retry": [
+          {
+            "ErrorEquals": ["States.ALL"],
+            "IntervalSeconds": 1,
+            "MaxAttempts": 3,
+            "BackoffRate": 2.0
+          }
+        ]
+      }
+    }
+  }

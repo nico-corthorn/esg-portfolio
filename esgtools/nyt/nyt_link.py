@@ -21,12 +21,27 @@ MANUAL_ORG_TO_STOCK_MAP = [
     ["YouTube.com", ["GOOG-14542","GOOGL-90319"]],
     ["Facebook Inc", ["META-13407"]],
     ["Facebook.com", ["META-13407"]],
+    ["WhatsApp Inc", ["META-13407"]],
     ["Lehman Brothers Holdings Inc", ["LEH-80599"]],
     ["Wal-Mart Stores Inc", ["WMT-55976"]],
     ["Tesla Motors Inc", ["TSLA-93436"]],
     ["Tesla Motors", ["TSLA-93436"]],
     ["Bear Stearns Cos", ["BSC-68304"]],
     ["Bear Stearns Companies Incorporated", ["BSC-68304"]],
+    ["Fox News Channel", ["FOXA-18420"]],
+    ["Fox Broadcasting Co", ["FOXA-18420"]],
+    ["Wall Street Journal", ["FOXA-18420"]],
+    ["CNN", ["WBD-0"]],
+    ["Warner Brothers", ["WBD-0"]]
+    ["Nissan Motor Co", ["NSANY-57681"]],
+    ["Berkshire Hathaway Inc", ["BRK-83443"]],
+    ["BlackRock Inc", ["BLK-87267"]],
+    ["Disney, Walt, Co", ["DIS-26403"]],
+    ["iTunes", ["AAPL-14593"]],
+    ["Morgan, J P, Chase & Co", ["JPM-47896"]],
+    ["Bain Capital", ["BCSF-18222"]],
+    ["Nokia Oyj", ["NOK-87128"]],
+    ["Enron Corporation", ["ENE-23317"]]
 ]
 
 
@@ -187,13 +202,13 @@ class NytNewsLinker:
         )
 
         news_to_asset = (
-            nyt_news_expanded[["web_url", "organization"]]
+            nyt_news_expanded[["web_url", "year_month", "organization"]]
             .merge(
                 org_merged[["organization", "asset_ids"]],
                 how="left",
                 on=["organization"]
             )
-            .drop_duplicates(["web_url", "organization"], keep="first", inplace=True)
+            .drop_duplicates(["web_url", "organization"], keep="first")
         )
 
         return news_to_asset
@@ -204,6 +219,6 @@ class NytNewsLinker:
         self.sql_manager.upload_df_chunks(self.org_to_asset_table, org_merged[org_to_asset_cols])
 
     def upload_news_to_asset(self, news_to_asset: pd.DataFrame):
-        news_to_asset_cols = ["web_url", "organization", "asset_ids"]
+        news_to_asset_cols = ["web_url", "year_month", "organization", "asset_ids"]
         self.sql_manager.query(f"delete from {self.news_to_asset_table}")
         self.sql_manager.upload_df_chunks(self.news_to_asset_table, news_to_asset[news_to_asset_cols])
