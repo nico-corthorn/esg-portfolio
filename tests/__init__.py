@@ -1,5 +1,5 @@
-
-import sys
 import os
-sys.path.append('{0}/../esgtools'.format(os.path.dirname(os.path.abspath(__file__))))
+import sys
+
+sys.path.append(f"{os.path.dirname(os.path.abspath(__file__))}/../esgtools")
 print(sys.path)

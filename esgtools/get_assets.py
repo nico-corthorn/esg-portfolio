@@ -1,61 +1,28 @@
-import os
 import json
-import boto3
-from botocore.exceptions import ClientError
 from ast import literal_eval
+
 import numpy as np
 import pandas as pd
 
-from utils import sql_manager, aws, utils
-from alpha import api, table
+from esgtools.alpha import api, table
+from esgtools.utils import aws, utils
 
 
-def lambda_handler(event, context):
-    """Get asset symbols that need to be refreshed
-
-    Parameters
-    ----------
-    event: dict, required
-        API Gateway Lambda Proxy Input Format
-        Event doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
-
-        Keys:
-            ref_table: str
-                Example: prices_alpha
-            validate: str, will be converted to bool
-                Example: True
-            asset_types: str, will be converted to List[str] by splitting on ,
-                Example: Stock or Stock,ETF
-            max_assets_in_batch: str, will be converted to int
-                Example: 4500
-
-    context: object, required
-        Lambda Context runtime methods and attributes
-        Context doc: https://docs.aws.amazon.com/lambda/latest/dg/python-context-object.html
-
-    Returns
-    -------
-    Dict using HTML protocol
-    """
+def lambda_handler(event, context):  # pylint: disable=unused-argument
+    """Get assets"""
     print("event", event)
 
-    # Example 
-    # 'queryStringParameters': {'ref_table': 'prices_alpha'}
-    # {"queryStringParameters": {"ref_table": "prices_alpha"}}
-
-    print("event['queryStringParameters']")
-    print(event["queryStringParameters"])
-    print()
+    # Example
+    # {"ref_table": "prices_alpha"}
 
     # Inputs
-    inputs = event["queryStringParameters"]
-    assert "ref_table" in inputs
-    ref_table = inputs["ref_table"]
-    validate = utils.str2bool(inputs.get("validate", "false"))
-    asset_types = inputs.get("asset_types", "Stock").split(",")
-    max_assets_in_batch = int(inputs.get("max_assets_in_batch", 75*60))
-    n_lists_in_batch = int(inputs.get("n_lists_in_batch", 10))
-    size = inputs.get("size", "full")
+    assert "ref_table" in event
+    ref_table = event["ref_table"]
+    validate = utils.str2bool(event.get("validate", "false"))
+    asset_types = event.get("asset_types", "Stock").split(",")
+    max_assets_in_batch = int(event.get("max_assets_in_batch", 75 * 60))
+    n_lists_in_batch = int(event.get("n_lists_in_batch", 10))
+    size = event.get("size", "full")
     print(f"ref_table = {ref_table}")
     print(f"validate = {validate}")
     print(f"asset_types = {asset_types}")
@@ -73,31 +40,38 @@ def lambda_handler(event, context):
     if ref_table == "prices_alpha":
         keys = ["symbol", "date"]
         alpha_prices = table.AlphaTablePrices(
-            ref_table, 
-            keys,
-            alpha_scraper, 
-            sql_params=db_credentials
+            ref_table, keys, alpha_scraper, sql_params=db_credentials
         )
         assets = alpha_prices.get_assets(validate, asset_types)
     else:
-        accounting_keys = ["symbol", "report_type", "report_date", "currency", "account_name"]
-        balance_accounts = ['totalAssets', 'commonStock', 'commonStockSharesOutstanding']
+        accounting_keys = [
+            "symbol",
+            "report_type",
+            "report_date",
+            "currency",
+            "account_name",
+        ]
+        balance_accounts = [
+            "totalAssets",
+            "commonStock",
+            "commonStockSharesOutstanding",
+        ]
         alpha_balance = table.AlphaTableAccounting(
-            "balance_alpha", 
-            "BALANCE_SHEET", 
-            accounting_keys, 
-            alpha_scraper, 
+            "balance_alpha",
+            "BALANCE_SHEET",
+            accounting_keys,
+            alpha_scraper,
             balance_accounts,
-            sql_params=db_credentials
+            sql_params=db_credentials,
         )
-        income_accounts = ['netIncome']
+        income_accounts = ["netIncome"]
         alpha_income = table.AlphaTableAccounting(
-            "income_alpha", 
-            "INCOME_STATEMENT", 
-            accounting_keys, 
-            alpha_scraper, 
+            "income_alpha",
+            "INCOME_STATEMENT",
+            accounting_keys,
+            alpha_scraper,
             income_accounts,
-            sql_params=db_credentials
+            sql_params=db_credentials,
         )
         if ref_table == "balance_alpha":
             assets = alpha_balance.get_assets(validate, asset_types)
@@ -113,18 +87,28 @@ def lambda_handler(event, context):
     if assets.shape[0] > 0:
         total_batches = len(range(0, len(assets), max_assets_in_batch))
         for i, batch_start in enumerate(range(0, len(assets), max_assets_in_batch)):
-            symbols_batch: pd.Series = assets.loc[batch_start:batch_start+max_assets_in_batch-1].symbol
+            symbols_batch: pd.Series = assets.loc[
+                batch_start : batch_start + max_assets_in_batch - 1
+            ].symbol
             partition_batch = np.array_split(symbols_batch, n_lists_in_batch)
-            is_last_batch = (i == total_batches - 1)
-            assets_sublists.append({
-                "batch": [{"symbols": ",".join(list(sublist)), "size": size} for sublist in partition_batch],
-                "is_last_batch": is_last_batch
-            })
+            is_last_batch = i == total_batches - 1
+            assets_sublists.append(
+                {
+                    "batch": [
+                        {"symbols": ",".join(list(sublist)), "size": size}
+                        for sublist in partition_batch
+                    ],
+                    "is_last_batch": is_last_batch,
+                }
+            )
 
     return {
         "statusCode": 200,
-        "body": json.dumps({
-            "message": f"Returning {len(assets_sublists)} batches with {n_lists_in_batch} sublists each.",
-        }),
-        "assets": assets_sublists
+        "body": json.dumps(
+            {
+                f"Returning {len(assets_sublists)} batches "
+                f"with {n_lists_in_batch} sublists each."
+            }
+        ),
+        "assets": assets_sublists,
     }

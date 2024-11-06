@@ -1,11 +1,7 @@
+from esgtools.utils import sql_manager
 
-import numpy as np
-import pandas as pd
-from datetime import datetime
-from utils import sql_manager, utils, date_utils
 
 def merge_alpha_and_wrds_assets(sql_params=None):
-
     sql = sql_manager.ManagerSQL(sql_params)
 
     # Delete table
@@ -63,7 +59,6 @@ and a.symbol = w.ticker
 
 
 def merge_alpha_and_wrds_returns(sql_params=None):
-
     sql = sql_manager.ManagerSQL(sql_params)
 
     # Delete table

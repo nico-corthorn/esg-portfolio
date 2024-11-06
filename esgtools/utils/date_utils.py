@@ -1,29 +1,28 @@
-
 import datetime
+
 from pandas.tseries.offsets import BDay
 from pytz import timezone
 
 
 def get_last_business_date(asof):
     """Returns last business date that has closed in NY
-        
-        Parameters
-        ----------
-        asof: datetime.datetime or datetime.date
 
-        Returns
-        -------
-        datetime.date
-            Last business date that has closed in NY.
-            If self.today is a weekend or holiday, it returns the last business date.
-            If self.today is a business date, then it returns the same date if it is past
-            4 pm ET, otherwise the last business date.
+    Parameters
+    ----------
+    asof: datetime.datetime or datetime.date
+
+    Returns
+    -------
+    datetime.date
+        Last business date that has closed in NY.
+        If self.today is a weekend or holiday, it returns the last business date.
+        If self.today is a business date, then it returns the same date if it is past
+        4 pm ET, otherwise the last business date.
     """
 
     if asof:
-
         # get datetime.date object
-        if type(asof) is datetime.date:
+        if isinstance(asof, datetime.date):
             asof_date = asof
         else:
             asof_date = asof.date()
@@ -32,8 +31,8 @@ def get_last_business_date(asof):
         is_business_day = (asof_date - BDay(1) + BDay(1)).date() == asof_date
 
         # Check whether stock market is closed in USA
-        if type(asof) is datetime.datetime:
-            time_eastern = asof.astimezone(timezone('US/Eastern'))
+        if isinstance(asof, datetime.date):
+            time_eastern = asof.astimezone(timezone("US/Eastern"))
             is_after_4_pm = time_eastern.hour >= 16
         else:
             is_after_4_pm = True
@@ -51,9 +50,9 @@ def get_last_quarter_date(asof):
     if asof:
         if asof.month < 4:
             return datetime.date(asof.year - 1, 12, 31)
-        elif asof.month < 7:
+        if asof.month < 7:
             return datetime.date(asof.year, 3, 31)
-        elif asof.month < 10:
+        if asof.month < 10:
             return datetime.date(asof.year, 6, 30)
         return datetime.date(asof.year, 9, 30)
     return None

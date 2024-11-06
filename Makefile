@@ -1,15 +1,23 @@
 install:
-	pip install --upgrade pip &&\
+	python -m pip install --upgrade pip &&\
 		pip install -r esgtools/requirements.txt &&\
-		pip install -r tests/test_requirements.txt
+		pip install -r tests/test_requirements.txt &&\
+		pip install -r requirements-dev.txt
 
 test:
 	python -m pytest -v
 
 format:
-	black *.py
+	black esgtools tests
+	isort esgtools tests
 
 lint:
-	pylint --disable=R,C hello.py
+	pylint esgtools tests --rcfile=.pylintrc
+	black --check esgtools tests
+	isort --check-only esgtools tests
 
-all: install lint test
+deploy:
+	sam build &&\
+	sam deploy --config-file samconfig.toml
+
+all: install format lint test
