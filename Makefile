@@ -1,7 +1,7 @@
 install:
 	python -m pip install --upgrade pip &&\
-		pip install -r requirements-dev.txt &&\
-		pip install -r esgtools/requirements.txt &&\
+		pip install -r dev_requirements.txt &&\
+		pip install -r lambda_requirements.txt &&\
 		pip install -r tests/test_requirements.txt &&\
 		pip install -e . --use-pep517
 
