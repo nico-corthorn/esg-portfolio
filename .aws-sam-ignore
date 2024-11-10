@@ -1,0 +1,11 @@
+.git/
+.aws-sam/
+.pytest_cache/
+.coverage
+*.pyc
+__pycache__/
+*.egg-info/
+tests/
+notebooks/
+*.ipynb
+.DS_Store

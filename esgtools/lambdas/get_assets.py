@@ -104,11 +104,6 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
 
     return {
         "statusCode": 200,
-        "body": json.dumps(
-            {
-                f"Returning {len(assets_sublists)} batches "
-                f"with {n_lists_in_batch} sublists each."
-            }
-        ),
+        "body": f"Returning {len(assets_sublists)} batches with {n_lists_in_batch} sublists each.",
         "assets": assets_sublists,
     }

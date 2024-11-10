@@ -22,7 +22,7 @@ def get_last_business_date(asof):
 
     if asof:
         # get datetime.date object
-        if isinstance(asof, datetime.date):
+        if isinstance(asof, datetime.date) and not isinstance(asof, datetime.datetime):
             asof_date = asof
         else:
             asof_date = asof.date()
@@ -31,7 +31,7 @@ def get_last_business_date(asof):
         is_business_day = (asof_date - BDay(1) + BDay(1)).date() == asof_date
 
         # Check whether stock market is closed in USA
-        if isinstance(asof, datetime.date):
+        if isinstance(asof, datetime.datetime):
             time_eastern = asof.astimezone(timezone("US/Eastern"))
             is_after_4_pm = time_eastern.hour >= 16
         else:

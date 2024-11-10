@@ -10,7 +10,6 @@ Globals:
     Timeout: 3
     Tracing: Active
     Runtime: python3.9
-    CodeUri: esgtools/
     Architectures:
       - x86_64  
   Api:
@@ -35,6 +34,17 @@ Resources:
     Properties:
       LogGroupName: /aws/vendedlogs/states/UpdateNyt
       RetentionInDays: 30
+
+# Dependency Layers
+  DependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: esgtools-dependencies
+      Description: Common dependencies for ESG Tools Lambda functions
+      ContentUri: .aws-sam/build/PythonDependenciesLayer/
+      CompatibleRuntimes:
+        - python3.9
+      RetentionPolicy: Retain
 
   # State Machines
   UpdatePricesStateMachine:
@@ -110,66 +120,90 @@ Resources:
   UpdateAssetsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: update_assets.lambda_handler
+      CodeUri: .
+      Handler: esgtools.lambdas.update_assets.lambda_handler
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 600
       MemorySize: 500
+      Layers:
+      - !Ref DependenciesLayer
 
   GetAssetsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: get_assets.lambda_handler
+      CodeUri: .
+      Handler: esgtools.lambdas.get_assets.lambda_handler
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 300
       MemorySize: 500
+      Layers:
+      - !Ref DependenciesLayer
   
   UpdatePricesAlphaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: update_prices_alpha.lambda_handler
+      CodeUri: .
+      Handler: esgtools.lambdas.update_prices_alpha.lambda_handler
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 900
       MemorySize: 1000
+      Layers:
+      - !Ref DependenciesLayer
 
   UpdatePricesAlphaMonthlyFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: update_prices_alpha_monthly.lambda_handler
+      CodeUri: .
+      Handler: esgtools.lambdas.update_prices_alpha_monthly.lambda_handler
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 900
       MemorySize: 1000
+      Layers:
+      - !Ref DependenciesLayer
 
   UpdateReturnsMonthlyFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: update_returns_monthly.lambda_handler
+      CodeUri: .
+      Handler: esgtools.lambdas.update_returns_monthly.lambda_handler
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 300
       MemorySize: 500
+      Layers:
+      - !Ref DependenciesLayer
 
   UpdateAccountingFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: update_accounting.lambda_handler
+      CodeUri: .
+      Handler: esgtools.lambdas.update_accounting.lambda_handler
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 900
       MemorySize: 1000
+      Layers:
+      - !Ref DependenciesLayer
 
   UpdateNytArticlesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: update_nyt_articles.lambda_handler
+      CodeUri: .
+      Handler: esgtools.lambdas.update_nyt_articles.lambda_handler
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 600
       MemorySize: 500
+      Layers:
+      - !Ref DependenciesLayer
 
   UpdateNytLinksFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: update_nyt_links.lambda_handler
+      CodeUri: .
+      Handler: esgtools.lambdas.update_nyt_links.lambda_handler
       Role: arn:aws:iam::654580413909:role/LambdaSecretsManagerReadAccess
       Timeout: 600
       MemorySize: 500
+      Layers:
+      - !Ref DependenciesLayer
 
 # Schedules
 # For UpdatePrices (weekly on Saturday)
@@ -186,10 +220,8 @@ Resources:
         RoleArn: !GetAtt UpdatePricesScheduleRole.Arn
         Input: |
           {
-            "queryStringParameters": {
-              "ref_table": "prices_alpha",
-              "size": "compact"
-            }
+            "ref_table": "prices_alpha",
+            "size": "compact"
           }
 
   UpdatePricesScheduleRole:
@@ -226,10 +258,8 @@ Resources:
         RoleArn: !GetAtt UpdateNytScheduleRole.Arn
         Input: |
           {
-            "queryStringParameters": {
-              "year_start": 2024,
-              "clean_table": "False"
-            }
+            "year_start": 2024,
+            "clean_table": "False"
           }
   UpdateNytScheduleRole:
     Type: AWS::IAM::Role

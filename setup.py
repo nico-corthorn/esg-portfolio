@@ -1,12 +1,17 @@
-# A minimal setup.py file to make a Python project installable.
-#
-# Note that while we are following modern packaging practices
-# with setuptools metadata being declaratively stored in setup.cfg
-# and build configuration listed in pyproj.toml, pip/setuptools
-# as of this writing (early 2022) still require a minimal setup.py
-# file in order to support editable development installs (pip install -e .)
+from setuptools import setup, find_packages
+import os
 
-from setuptools import setup
+def read_requirements(filename):
+    # Get the directory where setup.py is located (project root)
+    root_dir = os.path.dirname(os.path.abspath(__file__))
+    requirements_path = os.path.join(root_dir, filename)
+    
+    with open(requirements_path) as f:
+        return [line.strip() for line in f if line.strip() and not line.startswith("#")]
+
 
 if __name__ == "__main__":
-    setup()
+    setup(
+        packages=find_packages(include=['esgtools', 'esgtools.*']),
+        install_requires=read_requirements("lambda_requirements.txt")
+    )

@@ -8,4 +8,4 @@ pytest==7.4.3
 pytest-cov==4.1.0
 
 # Deployment
-aws-sam-cli==1.103.0
+aws-sam-cli==1.127.0
