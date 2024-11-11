@@ -40,11 +40,6 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-2
-    - name: Debug SAM Config
-      run: |
-        pwd
-        ls -la
-        cat samconfig.toml
     - name: Deploy with SAM
       if: success()
       env:

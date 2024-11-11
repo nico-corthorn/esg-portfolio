@@ -39,8 +39,20 @@ sambuild:
 	@echo "Size of entire .aws-sam directory:"
 	du -sh .aws-sam
 
+samdeploy-local:
+	@echo "Deploying from local samconfig file..."
+	sam deploy --config-file samconfig.toml
+
 samdeploy:
 	@echo "Deploying..."
-	sam deploy --config-file samconfig.toml
+	sam deploy \
+		--stack-name sam-app \
+		--s3-bucket aws-sam-cli-managed-default-samclisourcebucket-rluxcxhrbn0v \
+		--s3-prefix sam-app \
+		--region us-east-2 \
+		--capabilities CAPABILITY_IAM \
+		--no-confirm-changeset \
+		--no-fail-on-empty-changeset \
+		--disable-rollback false
 
 all: install format lint test
