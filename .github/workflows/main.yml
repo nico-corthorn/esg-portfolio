@@ -18,9 +18,6 @@ jobs:
     - name: Install dependencies
       run: |
         make install
-    - name: Lint
-      run: |
-        make lint
     - name: Test with pytest
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -36,10 +33,18 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-2
-    - name: Deploy with SAM
+    - name: SAM build
       if: success()
       env:
         AWS_SAM_STACK_NAME: ${{ secrets.AWS_SAM_STACK_NAME }}
       run: |
         make sambuild
+    - name: Lint
+      run: |
+        make lint
+    - name: SAM deploy
+      if: success()
+      env:
+        AWS_SAM_STACK_NAME: ${{ secrets.AWS_SAM_STACK_NAME }}
+      run: |
         make samdeploy
