@@ -1,6 +1,7 @@
 import json
 from ast import literal_eval
 
+from esgtools.domain_models.io import convert_dict_to_sql_params
 from esgtools.nyt.nyt_link import NytNewsLinker
 from esgtools.utils import aws
 
@@ -19,10 +20,12 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
     print(f"news_to_asset_table = {news_to_asset_table}")
 
     # Decrypts secret using the associated KMS key.
-    db_credentials = literal_eval(aws.get_secret("prod/awsportfolio/key"))
+    sql_params = convert_dict_to_sql_params(
+        literal_eval(aws.get_secret("prod/awsportfolio/key"))
+    )
 
     # Update NYT articles
-    nyt_linker = NytNewsLinker(org_to_asset_table, news_to_asset_table, db_credentials)
+    nyt_linker = NytNewsLinker(org_to_asset_table, news_to_asset_table, sql_params)
     nyt_linker.update_news_links()
 
     return {

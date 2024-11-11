@@ -5,6 +5,7 @@ from datetime import datetime
 
 import pytest
 
+from esgtools.domain_models.io import SQLParams, convert_dict_to_sql_params
 from esgtools.utils import aws, date_utils, sql_manager
 
 
@@ -19,15 +20,16 @@ def api_key():
 
 
 @pytest.fixture(scope="session")
-def db_credentials():
+def sql_params() -> SQLParams:
     """Fixture to get database credentials from AWS Secrets"""
-    return literal_eval(aws.get_secret("prod/awsportfolio/key"))
+    db_credentials = literal_eval(aws.get_secret("prod/awsportfolio/key"))
+    return convert_dict_to_sql_params(db_credentials)
 
 
 @pytest.fixture(scope="session")
-def sql(db_credentials):
+def sql(sql_params: SQLParams):
     """Fixture to create SQL manager"""
-    return sql_manager.ManagerSQL(db_credentials)
+    return sql_manager.ManagerSQL(sql_params)
 
 
 @pytest.fixture

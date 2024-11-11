@@ -1,5 +1,6 @@
 import pandas as pd
 
+from esgtools.domain_models.io import SQLParams
 from esgtools.utils import sql_manager
 
 # TODO: Move to its own table
@@ -39,12 +40,12 @@ class NytNewsLinker:
     """Linking NYT news to assets"""
 
     def __init__(
-        self, org_to_asset_table: str, news_to_asset_table: str, db_credentials
+        self, org_to_asset_table: str, news_to_asset_table: str, sql_params: SQLParams
     ):
         # Initial parameters
         self.org_to_asset_table = org_to_asset_table
         self.news_to_asset_table = news_to_asset_table
-        self.sql_manager = sql_manager.ManagerSQL(db_credentials)
+        self.sql_manager = sql_manager.ManagerSQL(sql_params)
 
     def update_news_links(self):
         # Read stock info

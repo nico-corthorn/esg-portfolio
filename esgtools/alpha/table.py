@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from esgtools.alpha import api
+from esgtools.domain_models.io import SQLParams
 from esgtools.utils import date_utils, sql_manager, utils
 
 URL_BASE = "https://www.alphavantage.co/query?function="
@@ -17,7 +18,7 @@ class AlphaTable(ABC):
         table_name: str,
         primary_keys: list,
         scraper: api.AlphaScraper,
-        sql_params=None,
+        sql_params: SQLParams,
     ):
         self.table_name = table_name
         self.primary_keys = primary_keys
@@ -457,7 +458,7 @@ class AlphaTablePrices(AlphaTable):
 
 
 class AlphaTablePricesMonthly(ABC):
-    def __init__(self, table_name: str, sql_params=None):
+    def __init__(self, table_name: str, sql_params: SQLParams):
         self.table_name = table_name
         self.sql = sql_manager.ManagerSQL(sql_params)
 

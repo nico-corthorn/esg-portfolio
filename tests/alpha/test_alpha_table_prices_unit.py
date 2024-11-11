@@ -6,6 +6,7 @@ import pytest
 
 from esgtools.alpha.api import AlphaScraper
 from esgtools.alpha.table import AlphaTablePrices
+from esgtools.domain_models.io import SQLParams
 
 
 # Fixtures
@@ -20,12 +21,12 @@ def mock_sql():
 
 
 @pytest.fixture
-def price_table(mock_scraper, mock_sql):
+def price_table(mock_scraper, mock_sql, sql_params: SQLParams):
     table = AlphaTablePrices(
         table_name="prices_alpha",
         primary_keys=["symbol", "date"],
         scraper=mock_scraper,
-        sql_params=None,
+        sql_params=sql_params,
     )
     table.sql = mock_sql
     return table

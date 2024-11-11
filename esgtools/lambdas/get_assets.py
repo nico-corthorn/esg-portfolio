@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from esgtools.alpha import api, table
+from esgtools.domain_models.io import convert_dict_to_sql_params
 from esgtools.utils import aws, utils
 
 
@@ -30,7 +31,9 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
     print(f"size = {size}")
 
     # Decrypts secret using the associated KMS key.
-    db_credentials = literal_eval(aws.get_secret("prod/awsportfolio/key"))
+    sql_params = convert_dict_to_sql_params(
+        literal_eval(aws.get_secret("prod/awsportfolio/key"))
+    )
     api_key = literal_eval(aws.get_secret("prod/AlphaApi/key"))["ALPHAVANTAGE_API_KEY"]
 
     alpha_scraper = api.AlphaScraper(api_key=api_key)
@@ -39,7 +42,7 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
     if ref_table == "prices_alpha":
         keys = ["symbol", "date"]
         alpha_prices = table.AlphaTablePrices(
-            ref_table, keys, alpha_scraper, sql_params=db_credentials
+            ref_table, keys, alpha_scraper, sql_params=sql_params
         )
         assets = alpha_prices.get_assets(validate, asset_types)
     else:
@@ -61,7 +64,7 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
             accounting_keys,
             alpha_scraper,
             balance_accounts,
-            sql_params=db_credentials,
+            sql_params=sql_params,
         )
         income_accounts = ["netIncome"]
         alpha_income = table.AlphaTableAccounting(
@@ -70,7 +73,7 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
             accounting_keys,
             alpha_scraper,
             income_accounts,
-            sql_params=db_credentials,
+            sql_params=sql_params,
         )
         if ref_table == "balance_alpha":
             assets = alpha_balance.get_assets(validate, asset_types)

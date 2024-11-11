@@ -17,14 +17,14 @@ class TestAlphaTablePricesIntegration:
         ],
     )
     def test_prices_alpha_update(
-        self, symbol, api_key, db_credentials, sql, last_business_date
+        self, symbol, api_key, sql_params, sql, last_business_date
     ):
         """Test updating price data for a single symbol"""
         # Initialize scraper and price table
         alpha_scraper = api.AlphaScraper(api_key=api_key)
         prices_keys = ["symbol", "date"]
         alpha_prices = table.AlphaTablePrices(
-            "prices_alpha", prices_keys, alpha_scraper, sql_params=db_credentials
+            "prices_alpha", prices_keys, alpha_scraper, sql_params=sql_params
         )
 
         # Update prices
@@ -49,21 +49,21 @@ class TestAlphaTablePricesIntegration:
         ],
     )
     def test_prices_alpha_monthly_update(
-        self, symbol, api_key, db_credentials, sql, last_business_date
+        self, symbol, api_key, sql_params, sql, last_business_date
     ):
         """Test updating monthly price data for a single symbol"""
         # Make sure daily prices are up to date
         alpha_scraper = api.AlphaScraper(api_key=api_key)
         prices_keys = ["symbol", "date"]
         alpha_prices = table.AlphaTablePrices(
-            "prices_alpha", prices_keys, alpha_scraper, sql_params=db_credentials
+            "prices_alpha", prices_keys, alpha_scraper, sql_params=sql_params
         )
         print(f"Updating daily prices for {symbol}")
         alpha_prices.update(symbol, "compact")
 
         # Update monthly values
         alpha_prices_monthly = table.AlphaTablePricesMonthly(
-            "prices_alpha_monthly", sql_params=db_credentials
+            "prices_alpha_monthly", sql_params=sql_params
         )
         print(f"Updating monthly prices for {symbol}")
         alpha_prices_monthly.update(symbol)

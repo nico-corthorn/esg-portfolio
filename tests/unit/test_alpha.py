@@ -4,13 +4,16 @@ import pandas as pd
 import pytest
 
 from esgtools.alpha import api, table
+from esgtools.domain_models.io import SQLParams
 
 
 @pytest.mark.parametrize("scenario", [1, 2, 3, 4, 5, 6])
-def test_get_api_prices_to_upload(scenario):
+def test_get_api_prices_to_upload(scenario: int, sql_params: SQLParams):
     alpha_scraper = api.AlphaScraper()
     prices_keys = ["symbol", "date"]
-    alpha_prices = table.AlphaTablePrices("prices_alpha", prices_keys, alpha_scraper)
+    alpha_prices = table.AlphaTablePrices(
+        "prices_alpha", prices_keys, alpha_scraper, sql_params
+    )
 
     prices_path = "tests/unit/data/prices"
     api_prices = pd.read_csv(f"{prices_path}/scenario_{scenario}/api_prices.csv")

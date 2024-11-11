@@ -2,6 +2,7 @@ import json
 from ast import literal_eval
 
 from esgtools.alpha import table
+from esgtools.domain_models.io import convert_dict_to_sql_params
 from esgtools.utils import aws
 
 
@@ -16,10 +17,12 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
     print(f"symbols = {symbols}")
 
     # Decrypts secret using the associated KMS key.
-    db_credentials = literal_eval(aws.get_secret("prod/awsportfolio/key"))
+    sql_params = convert_dict_to_sql_params(
+        literal_eval(aws.get_secret("prod/awsportfolio/key"))
+    )
 
     alpha_prices_monthly = table.AlphaTablePricesMonthly(
-        "prices_alpha_monthly", sql_params=db_credentials
+        "prices_alpha_monthly", sql_params=sql_params
     )
 
     if symbols:

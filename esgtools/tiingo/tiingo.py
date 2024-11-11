@@ -12,7 +12,6 @@
 # from esgtools.utils.utils import compute
 
 
-
 # class Scraper:
 #     def __init__(self):
 #         self.sql_manager = sql_manager.ManagerSQL()

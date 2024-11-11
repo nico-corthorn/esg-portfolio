@@ -3,6 +3,7 @@ from ast import literal_eval
 
 from esgtools.alpha import api, table
 from esgtools.consolidation import merge
+from esgtools.domain_models.io import convert_dict_to_sql_params
 from esgtools.utils import aws
 
 
@@ -10,7 +11,9 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
     """Update assets table"""
 
     # Decrypts secret using the associated KMS key.
-    db_credentials = literal_eval(aws.get_secret("prod/awsportfolio/key"))
+    sql_params = convert_dict_to_sql_params(
+        literal_eval(aws.get_secret("prod/awsportfolio/key"))
+    )
     api_key = literal_eval(aws.get_secret("prod/AlphaApi/key"))["ALPHAVANTAGE_API_KEY"]
 
     alpha_scraper = api.AlphaScraper(api_key=api_key)
@@ -18,11 +21,11 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
         "assets_alpha",
         [],
         alpha_scraper,
-        sql_params=db_credentials,
+        sql_params=sql_params,
     )
     alpha_assets.update_all()
 
-    merge.merge_alpha_and_wrds_assets(sql_params=db_credentials)
+    merge.merge_alpha_and_wrds_assets(sql_params=sql_params)
 
     return {
         "statusCode": 200,

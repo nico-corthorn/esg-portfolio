@@ -1,6 +1,7 @@
 import json
 from ast import literal_eval
 
+from esgtools.domain_models.io import convert_dict_to_sql_params
 from esgtools.nyt.nyt_scrape import NytNewsScraper
 from esgtools.utils import aws, utils
 
@@ -23,11 +24,13 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
     print(f"verbose = {verbose}")
 
     # Decrypts secret using the associated KMS key.
-    db_credentials = literal_eval(aws.get_secret("prod/awsportfolio/key"))
+    sql_params = convert_dict_to_sql_params(
+        literal_eval(aws.get_secret("prod/awsportfolio/key"))
+    )
     api_key = literal_eval(aws.get_secret("prod/NYTApi/key"))["NYT_API_KEY"]
 
     # Update NYT articles
-    nyt_scraper = NytNewsScraper(table_name, api_key, db_credentials)
+    nyt_scraper = NytNewsScraper(table_name, api_key, sql_params)
     nyt_scraper.nyt_upload_all_articles(year_start, clean_table, verbose)
 
     return {

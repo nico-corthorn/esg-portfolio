@@ -1,7 +1,8 @@
+from esgtools.domain_models.io import SQLParams
 from esgtools.utils import sql_manager
 
 
-def merge_alpha_and_wrds_assets(sql_params=None):
+def merge_alpha_and_wrds_assets(sql_params: SQLParams):
     sql = sql_manager.ManagerSQL(sql_params)
 
     # Delete table
@@ -58,7 +59,7 @@ and a.symbol = w.ticker
     sql.query(query)
 
 
-def merge_alpha_and_wrds_returns(sql_params=None):
+def merge_alpha_and_wrds_returns(sql_params: SQLParams):
     sql = sql_manager.ManagerSQL(sql_params)
 
     # Delete table
