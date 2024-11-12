@@ -2,19 +2,24 @@ name: Python application test with Github Actions
 
 on:
   push:
-    branches: [main]
+    branches:
+      - '**'
+  pull_request:
+    branches: 
+      - main
 
 jobs:
   build:
 
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v3
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v4
       with:
         python-version: 3.9
+    - uses: aws-actions/setup-sam@v2
     - name: Install dependencies
       run: |
         make install
@@ -27,11 +32,8 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       run: |
         make test
-    - name: Install AWS SAM CLI
-      run: |
-        pip install aws-sam-cli
     - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v1
+      uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
