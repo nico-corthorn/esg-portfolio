@@ -5,9 +5,6 @@ install:
 		pip install -r tests/test_requirements.txt &&\
 		pip install -e . --use-pep517
 
-test:
-	python -m pytest -v
-
 format:
 	black esgtools tests
 	isort esgtools tests
@@ -16,6 +13,11 @@ lint:
 	pylint esgtools tests --rcfile=.pylintrc
 	black --check esgtools tests
 	isort --check-only esgtools tests
+
+test:
+	python -m pytest -v
+
+pre_pr: format lint test
 
 sambuild:
 	@echo "Cleaning previous build..."
@@ -54,5 +56,3 @@ samdeploy:
 		--no-confirm-changeset \
 		--no-fail-on-empty-changeset \
 		--disable-rollback false
-
-all: install format lint test
