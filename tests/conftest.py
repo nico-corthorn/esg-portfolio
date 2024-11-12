@@ -123,7 +123,5 @@ def sql(sql_params: SQLParams):
 @pytest.fixture(scope="session")
 def last_business_date():
     """Fixture to get last business date"""
-    asof1 = datetime.now().astimezone(timezone("US/Eastern"))
-    print(asof1)
-    asof = datetime.now()  # incorrect, for testing purposes
+    asof = datetime.now().astimezone(timezone("US/Eastern"))
     return date_utils.get_last_business_date(asof=asof)
