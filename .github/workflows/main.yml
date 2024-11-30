@@ -43,10 +43,10 @@ jobs:
       env:
         AWS_SAM_STACK_NAME: ${{ secrets.AWS_SAM_STACK_NAME }}
       run: |
-        make sambuild
+        make build
     - name: SAM deploy
       if: success()
       env:
         AWS_SAM_STACK_NAME: ${{ secrets.AWS_SAM_STACK_NAME }}
       run: |
-        make samdeploy
+        make deploy

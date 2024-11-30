@@ -12,6 +12,7 @@ def read_requirements(filename):
 
 if __name__ == "__main__":
     setup(
+        name="esgtools",
         packages=find_packages(include=['esgtools', 'esgtools.*']),
         install_requires=read_requirements("lambda_requirements.txt")
     )

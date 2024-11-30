@@ -19,7 +19,7 @@ test:
 
 pre_pr: format lint test
 
-sambuild:
+build:
 	@echo "Cleaning previous build..."
 	rm -rf .aws-sam/build
 
@@ -41,11 +41,11 @@ sambuild:
 	@echo "Size of entire .aws-sam directory:"
 	du -sh .aws-sam
 
-samdeploy-local:
+deploy-local:
 	@echo "Deploying from local samconfig file..."
 	sam deploy --config-file samconfig.toml
 
-samdeploy:
+deploy:
 	@echo "Deploying..."
 	sam deploy \
 		--stack-name sam-app \
@@ -56,3 +56,10 @@ samdeploy:
 		--no-confirm-changeset \
 		--no-fail-on-empty-changeset \
 		--disable-rollback false
+
+push-sentiment-container:
+	chmod +x ./esgtools/sentiment/inference_pipeline/build_and_push.sh
+	./esgtools/sentiment/inference_pipeline/build_and_push.sh
+
+deploy-sentiment-pipeline:
+	python ./esgtools/sentiment/inference_pipeline/deploy_pipeline.py

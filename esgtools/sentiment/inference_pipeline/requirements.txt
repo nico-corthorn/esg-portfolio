@@ -1,0 +1,8 @@
+transformers
+torch
+accelerate>=0.26.0
+s3fs
+boto3
+psycopg2-binary
+pandas
+tqdm

@@ -147,3 +147,6 @@ db/viewer.ipynb
 
 # WRDS solutions
 esgtools/wrds
+
+# Package duplicates
+esgtools/sentiment/inference_pipeline/esgtools

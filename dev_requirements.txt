@@ -9,3 +9,6 @@ pytest-cov==4.1.0
 
 # Deployment
 aws-sam-cli==1.127.0
+
+# SageMaker
+sagemaker==2.197.1
