@@ -17,9 +17,7 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
     print(f"symbols = {symbols}")
 
     # Decrypts secret using the associated KMS key.
-    sql_params = convert_dict_to_sql_params(
-        literal_eval(aws.get_secret("prod/awsportfolio/key"))
-    )
+    sql_params = convert_dict_to_sql_params(literal_eval(aws.get_secret("prod/awsportfolio/key")))
 
     alpha_prices_monthly = table.AlphaTablePricesMonthly(
         "prices_alpha_monthly", sql_params=sql_params

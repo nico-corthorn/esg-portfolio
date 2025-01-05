@@ -34,9 +34,7 @@ def filter_elements_config(df, params, suffix=""):
     else:
         cond_asset_types = df["asset_type"].isin(params["asset_types" + suffix])
         cond_exchange = df["exchange"].isin(params["exchanges" + suffix])
-        cond_additional_symbols = df["ticker"].isin(
-            params["additional_symbols" + suffix]
-        )
+        cond_additional_symbols = df["ticker"].isin(params["additional_symbols" + suffix])
         cond = (cond_asset_types & cond_exchange) | cond_additional_symbols
         data = df.loc[cond, :]
 

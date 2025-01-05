@@ -14,9 +14,7 @@ class SQLParams:
 
 def convert_dict_to_sql_params(db_credentials: dict) -> SQLParams:
     filtered_db_credentials = {
-        key: db_credentials[key]
-        for key in SQLParams.__annotations__
-        if key in db_credentials
+        key: db_credentials[key] for key in SQLParams.__annotations__ if key in db_credentials
     }
     sql_params = SQLParams(**filtered_db_credentials)
     return sql_params

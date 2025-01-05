@@ -19,9 +19,7 @@ class NytNewsScraper:
         self.api_key = api_key
         self.sql_manager = sql_manager.ManagerSQL(db_credentials)
 
-    def nyt_upload_all_articles(
-        self, year_start=2001, clean_tables=False, verbose=False
-    ):
+    def nyt_upload_all_articles(self, year_start=2001, clean_tables=False, verbose=False):
         if clean_tables:
             self.sql_manager.clean_table(self.table_name)
         now = datetime.now()
@@ -56,9 +54,7 @@ class NytNewsScraper:
                         f"No data returned for {year_month} ({(t1 - t0).total_seconds():.2f} sec)"
                     )
                     return
-                print(
-                    f"Downloaded NYT {year_month} ({(t1 - t0).total_seconds():.2f} sec)"
-                )
+                print(f"Downloaded NYT {year_month} ({(t1 - t0).total_seconds():.2f} sec)")
 
             # Upload
             if verbose:
@@ -67,15 +63,11 @@ class NytNewsScraper:
             self.sql_manager.upload_df_chunks("nyt_archive", df)
             t1 = datetime.now()
             if verbose > 0:
-                print(
-                    f"Uploaded NYT {year_month} ({(t1 - t0).total_seconds():.2f} sec)"
-                )
+                print(f"Uploaded NYT {year_month} ({(t1 - t0).total_seconds():.2f} sec)")
 
         except Exception:
             t1 = datetime.now()
-            print(
-                f"ERROR: Failed to upload NYT {year_month} ({(t1 - t0).total_seconds():.2f} sec)"
-            )
+            print(f"ERROR: Failed to upload NYT {year_month} ({(t1 - t0).total_seconds():.2f} sec)")
             exc_type, exc_value, exc_tb = sys.exc_info()
             traceback.print_exception(exc_type, exc_value, exc_tb)
 
@@ -156,9 +148,7 @@ class NytNewsScraper:
             df = df[cols]
             df["pub_date"] = pd.to_datetime(df["pub_date"])
             text_insert_cols = ["organizations", "subjects", "headline", "snippet"]
-            df[text_insert_cols] = df[text_insert_cols].mask(
-                df[text_insert_cols].isnull(), ""
-            )
+            df[text_insert_cols] = df[text_insert_cols].mask(df[text_insert_cols].isnull(), "")
             df["year_month"] = f"{year}{month:02}"
             df["lud"] = lud
             final_cols = [

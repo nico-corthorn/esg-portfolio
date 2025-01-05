@@ -16,9 +16,7 @@ class TestAlphaTablePricesIntegration:
             "MSFT",
         ],
     )
-    def test_prices_alpha_update(
-        self, symbol, api_key, sql_params, sql, last_business_date
-    ):
+    def test_prices_alpha_update(self, symbol, api_key, sql_params, sql, last_business_date):
         """Test updating price data for a single symbol"""
         # Initialize scraper and price table
         alpha_scraper = api.AlphaScraper(api_key=api_key)

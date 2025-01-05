@@ -24,9 +24,7 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
     print(f"verbose = {verbose}")
 
     # Decrypts secret using the associated KMS key.
-    sql_params = convert_dict_to_sql_params(
-        literal_eval(aws.get_secret("prod/awsportfolio/key"))
-    )
+    sql_params = convert_dict_to_sql_params(literal_eval(aws.get_secret("prod/awsportfolio/key")))
     api_key = literal_eval(aws.get_secret("prod/NYTApi/key"))["NYT_API_KEY"]
 
     # Update NYT articles

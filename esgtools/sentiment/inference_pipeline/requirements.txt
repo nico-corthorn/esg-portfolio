@@ -1,8 +1,12 @@
-transformers
+--find-links https://download.pytorch.org/whl/cu121
 torch
+transformers
 accelerate>=0.26.0
+bitsandbytes
 s3fs
 boto3
 psycopg2-binary
 pandas
 tqdm
+flask
+sagemaker

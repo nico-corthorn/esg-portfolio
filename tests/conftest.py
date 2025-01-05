@@ -70,10 +70,7 @@ def pytest_runtest_makereport(item, call):  # pylint: disable=unused-argument
         protector = SensitiveDataProtector()
 
         # Convert longrepr to string if it isn't already
-        if hasattr(report.longrepr, "reprcrash"):
-            longrepr_str = str(report.longrepr)
-        else:
-            longrepr_str = report.longrepr
+        longrepr_str = str(report.longrepr)
 
         # Redact sensitive fixture values
         for fixture_name in protector.sensitive_fixtures:
@@ -111,6 +108,13 @@ def sql_params() -> SQLParams:
     """Fixture to get database credentials from AWS Secrets"""
     db_credentials = literal_eval(aws.get_secret("prod/awsportfolio/key"))
     return convert_dict_to_sql_params(db_credentials)
+
+
+@pytest.fixture
+def sql_params_mock():
+    return SQLParams(
+        dbname="test_db", username="test_user", password="test_pass", host="localhost", port=5432
+    )
 
 
 @pytest.fixture(scope="session")

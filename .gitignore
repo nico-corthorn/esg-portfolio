@@ -135,7 +135,7 @@ dmypy.json
 .DS_Store
 
 # VSCode
-.vscode/
+.vscode/launch.json
 
 # SAM
 samconfig.toml

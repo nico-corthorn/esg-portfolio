@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+
+import json
+import signal
+import sys
+import traceback
+
+import flask
+
+# Create the Flask app
+app = flask.Flask(__name__)
+
+# Import our inference code
+import inference
+
+
+@app.route('/ping', methods=['GET'])
+def ping():
+    """Determine if the container is working and healthy."""
+    return flask.Response(response='\n', status=200, mimetype='application/json')
+
+@app.route('/execution-parameters', methods=['GET'])
+def execution_parameters():
+    """Return the execution parameters."""
+    params = {
+        "MaxConcurrentTransforms": 1,
+        "BatchStrategy": "SINGLE_RECORD",
+        "MaxPayloadInMB": 6
+    }
+    return flask.Response(
+        response=json.dumps(params),
+        status=200,
+        mimetype='application/json'
+    )
+
+@app.route('/invocations', methods=['POST'])
+def transformation():
+    """Do an inference on a single batch of data."""
+    try:
+        if flask.request.content_type != 'application/jsonlines':
+            return flask.Response(
+                response=json.dumps({
+                    "error": f"Content type must be application/jsonlines, got {flask.request.content_type}"
+                }),
+                status=415,
+                mimetype='application/json'
+            )
+
+        data = flask.request.data.decode('utf-8')
+        
+        # Add debug logging
+        print(f"Received data: {data[:200]}...")  # Print first 200 chars
+        
+        # Initialize model and tokenizer
+        model, tokenizer = inference.model_fn('/opt/ml/model')
+        
+        # Do the prediction
+        input_data = inference.input_fn(data, flask.request.content_type)
+        prediction = inference.predict_fn(input_data, (model, tokenizer))
+        result = inference.output_fn(prediction, flask.request.accept_mimetypes.best)
+        
+        return flask.Response(
+            response=result,
+            status=200,
+            mimetype='application/json'
+        )
+    except Exception as e:
+        print(f"Error in transformation: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
+        return flask.Response(
+            response=json.dumps({"error": str(e), "traceback": traceback.format_exc()}),
+            status=400,
+            mimetype='application/json'
+        )
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080)

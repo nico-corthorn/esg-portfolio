@@ -30,7 +30,7 @@ cp "${REPO_DIR}/setup.py" "${BUILD_DIR}/setup.py"
 cp "${REPO_DIR}/lambda_requirements.txt" "${BUILD_DIR}/lambda_requirements.txt"
 cp "${PIPELINE_DIR}/Dockerfile" "${BUILD_DIR}/Dockerfile"
 cp "${PIPELINE_DIR}/requirements.txt" "${BUILD_DIR}/requirements.txt"
-cp "${PIPELINE_DIR}/preprocessing.py" "${BUILD_DIR}/preprocessing.py"
+cp "${PIPELINE_DIR}/script_runner.py" "${BUILD_DIR}/"
 
 # Debug: List contents of build directory
 echo "Contents of build directory:"

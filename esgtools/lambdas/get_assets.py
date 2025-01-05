@@ -31,9 +31,7 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
     print(f"size = {size}")
 
     # Decrypts secret using the associated KMS key.
-    sql_params = convert_dict_to_sql_params(
-        literal_eval(aws.get_secret("prod/awsportfolio/key"))
-    )
+    sql_params = convert_dict_to_sql_params(literal_eval(aws.get_secret("prod/awsportfolio/key")))
     api_key = literal_eval(aws.get_secret("prod/AlphaApi/key"))["ALPHAVANTAGE_API_KEY"]
 
     alpha_scraper = api.AlphaScraper(api_key=api_key)
@@ -41,9 +39,7 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
     assets = pd.DataFrame()
     if ref_table == "prices_alpha":
         keys = ["symbol", "date"]
-        alpha_prices = table.AlphaTablePrices(
-            ref_table, keys, alpha_scraper, sql_params=sql_params
-        )
+        alpha_prices = table.AlphaTablePrices(ref_table, keys, alpha_scraper, sql_params=sql_params)
         assets = alpha_prices.get_assets(validate, asset_types)
     else:
         accounting_keys = [

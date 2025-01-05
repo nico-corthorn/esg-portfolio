@@ -20,9 +20,7 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
     print(f"news_to_asset_table = {news_to_asset_table}")
 
     # Decrypts secret using the associated KMS key.
-    sql_params = convert_dict_to_sql_params(
-        literal_eval(aws.get_secret("prod/awsportfolio/key"))
-    )
+    sql_params = convert_dict_to_sql_params(literal_eval(aws.get_secret("prod/awsportfolio/key")))
 
     # Update NYT articles
     nyt_linker = NytNewsLinker(org_to_asset_table, news_to_asset_table, sql_params)

@@ -118,9 +118,7 @@ class TestAlphaTablePrices:
         # Assertions
         assert result is None
 
-    def test_get_api_prices_to_upload_full_history(
-        self, price_table, sample_api_prices
-    ):
+    def test_get_api_prices_to_upload_full_history(self, price_table, sample_api_prices):
         """Test logic for determining what data needs to be uploaded - full history case"""
         # Create empty DataFrame with same columns as api_prices
         db_prices = pd.DataFrame(
@@ -155,9 +153,7 @@ class TestAlphaTablePrices:
             should_upload,
             clean_db_table,
             prices_to_upload,
-        ) = price_table.get_api_prices_to_upload(
-            sample_api_prices, sample_db_prices, "compact"
-        )
+        ) = price_table.get_api_prices_to_upload(sample_api_prices, sample_db_prices, "compact")
 
         # Assertions
         assert should_upload is True
@@ -212,11 +208,7 @@ class TestAlphaTablePrices:
         # mock_scraper.hit_api.assert_called_once()
         call_args = mock_scraper.hit_api.call_args[1]
         assert call_args["symbol"] == symbol
-        assert (
-            call_args["size"] == "full"
-        )  # If db has no data, it should fetch full history
+        assert call_args["size"] == "full"  # If db has no data, it should fetch full history
 
         # Verify database operations
-        assert (
-            price_table.sql.upload_df_chunks.called
-        ), "Data should be uploaded to database"
+        assert price_table.sql.upload_df_chunks.called, "Data should be uploaded to database"

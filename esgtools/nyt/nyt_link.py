@@ -39,9 +39,7 @@ MANUAL_ORG_TO_STOCK_MAP = [
 class NytNewsLinker:
     """Linking NYT news to assets"""
 
-    def __init__(
-        self, org_to_asset_table: str, news_to_asset_table: str, sql_params: SQLParams
-    ):
+    def __init__(self, org_to_asset_table: str, news_to_asset_table: str, sql_params: SQLParams):
         # Initial parameters
         self.org_to_asset_table = org_to_asset_table
         self.news_to_asset_table = news_to_asset_table
@@ -66,14 +64,10 @@ class NytNewsLinker:
         org_merged_base = self.get_org_to_asset_link_based_on_name(org_counts, stocks)
 
         # Link based on manual map
-        org_merged_add = self.get_org_to_asset_link_based_on_manual_map(
-            org_counts, stocks
-        )
+        org_merged_add = self.get_org_to_asset_link_based_on_manual_map(org_counts, stocks)
 
         # Final link between orgs and stocks
-        org_merged = self.consolidate_org_to_asset_links(
-            org_merged_base, org_merged_add
-        )
+        org_merged = self.consolidate_org_to_asset_links(org_merged_base, org_merged_add)
 
         # Upload org to stock map
         self.upload_org_to_asset(org_merged)
@@ -94,9 +88,7 @@ class NytNewsLinker:
         )
         return org_counts
 
-    def get_org_to_asset_link_based_on_name(
-        self, org_counts: pd.DataFrame, stocks: pd.DataFrame
-    ):
+    def get_org_to_asset_link_based_on_name(self, org_counts: pd.DataFrame, stocks: pd.DataFrame):
         """Systematic attempt at linking orgs with stocks based on a minimal version of the name."""
         col_clean = "name_clean"
         self.add_name_clean(org_counts, "organization", col_clean)
@@ -129,9 +121,7 @@ class NytNewsLinker:
         )
 
     @staticmethod
-    def get_org_to_asset_link_based_on_manual_map(
-        org_counts: pd.DataFrame, stocks: pd.DataFrame
-    ):
+    def get_org_to_asset_link_based_on_manual_map(org_counts: pd.DataFrame, stocks: pd.DataFrame):
         # Prepare map
         df_manual_org_to_stock_map = pd.DataFrame(
             MANUAL_ORG_TO_STOCK_MAP, columns=["organization", "asset_id"]
@@ -156,9 +146,7 @@ class NytNewsLinker:
         return org_merged_add
 
     @staticmethod
-    def consolidate_org_to_asset_links(
-        org_merged_base: pd.DataFrame, org_merged_add: pd.DataFrame
-    ):
+    def consolidate_org_to_asset_links(org_merged_base: pd.DataFrame, org_merged_add: pd.DataFrame):
         # Merge between both strategies
         org_merged_raw = pd.concat(
             (org_merged_base, org_merged_add[org_merged_base.columns]), axis=0
@@ -201,9 +189,7 @@ class NytNewsLinker:
     def upload_org_to_asset(self, org_merged: pd.DataFrame):
         org_to_asset_cols = ["organization", "count", "asset_ids"]
         self.sql_manager.query(f"delete from {self.org_to_asset_table}")
-        self.sql_manager.upload_df_chunks(
-            self.org_to_asset_table, org_merged[org_to_asset_cols]
-        )
+        self.sql_manager.upload_df_chunks(self.org_to_asset_table, org_merged[org_to_asset_cols])
 
     def upload_news_to_asset(self, news_to_asset: pd.DataFrame):
         news_to_asset_cols = ["web_url", "year_month", "organization", "asset_ids"]

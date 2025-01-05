@@ -11,17 +11,13 @@ from esgtools.domain_models.io import SQLParams
 def test_get_api_prices_to_upload(scenario: int, sql_params: SQLParams):
     alpha_scraper = api.AlphaScraper()
     prices_keys = ["symbol", "date"]
-    alpha_prices = table.AlphaTablePrices(
-        "prices_alpha", prices_keys, alpha_scraper, sql_params
-    )
+    alpha_prices = table.AlphaTablePrices("prices_alpha", prices_keys, alpha_scraper, sql_params)
 
     prices_path = "tests/unit/data/prices"
     api_prices = pd.read_csv(f"{prices_path}/scenario_{scenario}/api_prices.csv")
     db_prices = pd.read_csv(f"{prices_path}/scenario_{scenario}/db_prices.csv")
     exp_api_prices = pd.read_csv(f"{prices_path}/scenario_{scenario}/output_df.csv")
-    with open(
-        f"{prices_path}/scenario_{scenario}/output_vars.json", encoding="utf-8"
-    ) as vars_json:
+    with open(f"{prices_path}/scenario_{scenario}/output_vars.json", encoding="utf-8") as vars_json:
         output_vars = json.load(vars_json)
 
     size = output_vars["size"]

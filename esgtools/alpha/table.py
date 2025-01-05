@@ -56,15 +56,11 @@ class AlphaTable(ABC):
         """
         assets_max_date = self.sql.select_query(query)
 
-        assets = assets.merge(
-            assets_max_date, how="left", left_on="symbol", right_on="symbol"
-        )
+        assets = assets.merge(assets_max_date, how="left", left_on="symbol", right_on="symbol")
 
         # if active, last date in db (max_date) == self.last_business_date
         cond_last_bd = assets.max_date >= last_reference_date_fun(datetime.today())
-        cond_delisted = assets.max_date >= assets.delisting_date.map(
-            last_reference_date_fun
-        )
+        cond_delisted = assets.max_date >= assets.delisting_date.map(last_reference_date_fun)
         cond_updated = cond_last_bd | cond_delisted
         assets = assets.loc[~cond_updated]
 
@@ -77,12 +73,8 @@ class AlphaTable(ABC):
         db_data["db_exist"] = 1
 
         # Check whether and what to upload
-        api_dates_df = (
-            api_data[self.primary_keys + ["api_exist"]].drop_duplicates().astype(str)
-        )
-        db_dates_df = (
-            db_data[self.primary_keys + ["db_exist"]].drop_duplicates().astype(str)
-        )
+        api_dates_df = api_data[self.primary_keys + ["api_exist"]].drop_duplicates().astype(str)
+        db_dates_df = db_data[self.primary_keys + ["db_exist"]].drop_duplicates().astype(str)
 
         dates_df = api_dates_df.merge(
             db_dates_df,
@@ -240,9 +232,7 @@ class AlphaTablePrices(AlphaTable):
                         # DB information has to be deleted for symbol
 
                         # Clean symbol rows
-                        query = (
-                            f"delete from {self.table_name} where symbol = '{symbol}'"
-                        )
+                        query = f"delete from {self.table_name} where symbol = '{symbol}'"
                         print(f"Cleaning {symbol}: {query}")
                         self.sql.query(query)
                     else:
@@ -291,9 +281,7 @@ class AlphaTablePrices(AlphaTable):
 
             # Transform into formatted pandas DataFrame
             if "Time Series (Daily)" in prices_json:
-                prices = pd.DataFrame(
-                    prices_json["Time Series (Daily)"], dtype="float"
-                ).T
+                prices = pd.DataFrame(prices_json["Time Series (Daily)"], dtype="float").T
 
                 # Remove enumeration at beginning of columns (e.g. "1. open")
                 col_rename = {col: col[3:].replace(" ", "_") for col in prices.columns}
@@ -399,9 +387,7 @@ class AlphaTablePrices(AlphaTable):
         should_upload = True
 
         # Get dates in db that are potentially valid
-        db_dates_valid = db_prices.loc[
-            db_prices.date.astype(str) < db_dates_missing.min()
-        ]
+        db_dates_valid = db_prices.loc[db_prices.date.astype(str) < db_dates_missing.min()]
 
         if db_dates_valid.shape[0] == 0:
             # There are no valid dates in the db for the symbol.
@@ -480,9 +466,7 @@ class AlphaTablePricesMonthly(ABC):
 
             if prices_monthly.shape[0] > 0:
                 # Clean symbol in monthly table
-                delete_query = (
-                    f"delete from {self.table_name} where symbol = '{symbol}'"
-                )
+                delete_query = f"delete from {self.table_name} where symbol = '{symbol}'"
                 self.sql.query(delete_query)
 
                 # Upload to database
@@ -520,9 +504,7 @@ class AlphaTablePricesMonthly(ABC):
         }
 
         # Last monthly values
-        prices_monthly_last = (
-            prices_daily.set_index("date").groupby("symbol").resample("BM").last()
-        )
+        prices_monthly_last = prices_daily.set_index("date").groupby("symbol").resample("BM").last()
 
         # Aggregate monthly values
         prices_monthly_agg = (
@@ -532,9 +514,7 @@ class AlphaTablePricesMonthly(ABC):
             .agg(agg_map)
             .rename(columns=agg_rename)
         )
-        prices_monthly_agg["monthly_return"] = (
-            np.exp(prices_monthly_agg["monthly_cont_return"]) - 1
-        )
+        prices_monthly_agg["monthly_return"] = np.exp(prices_monthly_agg["monthly_cont_return"]) - 1
 
         # Join monthly values
         prices_monthly = prices_monthly_last.join(prices_monthly_agg)
@@ -559,12 +539,8 @@ class AlphaTablePricesMonthly(ABC):
             "lud",
         ]
         missing_data_cond = prices_monthly.adjusted_close.isnull()
-        one_record_cond = (prices_monthly.day_count == 1) & (
-            prices_monthly.monthly_return == 0
-        )
-        prices_monthly = prices_monthly.loc[
-            ~missing_data_cond & ~one_record_cond, cols
-        ].copy()
+        one_record_cond = (prices_monthly.day_count == 1) & (prices_monthly.monthly_return == 0)
+        prices_monthly = prices_monthly.loc[~missing_data_cond & ~one_record_cond, cols].copy()
 
         return prices_monthly
 
@@ -619,9 +595,7 @@ class AlphaTableAccounting(AlphaTable):
                 should_upload = not len(db_missing) == 0
 
                 if should_upload:
-                    api_balance[self.primary_keys] = api_balance[
-                        self.primary_keys
-                    ].astype(str)
+                    api_balance[self.primary_keys] = api_balance[self.primary_keys].astype(str)
                     api_balance = api_balance.merge(
                         db_missing,
                         how="inner",
@@ -657,9 +631,7 @@ class AlphaTableAccounting(AlphaTable):
         url = "{URL_BASE}{url_table_name}&symbol={symbol}&apikey={api_key}"
 
         try:
-            download = self.scraper.hit_api(
-                url, symbol=symbol, url_table_name=self.url_table_name
-            )
+            download = self.scraper.hit_api(url, symbol=symbol, url_table_name=self.url_table_name)
             data_json = download.json()
 
             final_cols = [
@@ -698,9 +670,7 @@ class AlphaTableAccounting(AlphaTable):
             print(e)
             return None
 
-    def wrangle_json(
-        self, symbol, data_json, key_report, key_report_map, accounts, final_cols
-    ):
+    def wrangle_json(self, symbol, data_json, key_report, key_report_map, accounts, final_cols):
         data = pd.DataFrame()
 
         if key_report in data_json:

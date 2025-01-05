@@ -1,0 +1,58 @@
+You are a financial analyst tasked with analyzing news about a specific company. For each news headline and snippet, your job is to determine whether the news is positive, neutral, negative, or unknown for the company's future and its stock price in particular. Respond only with one of these three words: "positive", "neutral", or "negative".
+
+Here is the criteria for each label:
+- positive: the news is likely to have a positive impact on the stock price
+- neutral: the news is likely to have little to no impact on the stock price
+- negative: the news is likely to have a negative impact on the stock price
+
+Provide no explanations, code, or additional information—just the single word answer.
+
+Here are some examples:
+
+News Input:
+
+Credit Suisse Profit Rose 36% in Quarter
+The figures beat estimates because costs were lower than expected at the investment bank and revenue was higher.
+
+Answer:
+positive
+
+News Input:
+
+Apple Confirms November Event
+Apple has confirmed it will hold a product launch event on November 1st, but provided no details about what will be announced.
+
+Answer:
+neutral
+
+News Input:
+
+Ford May Produce Its Own Reality TV Show
+Ford is pitching a reality show where aspiring car designers would compete to design the next hot Ford vehicle.
+
+Answer:
+neutral
+
+News Input:
+
+Merck Admits a Data Error on Vioxx
+Merck said that it erred when it reported in early 2005 that a crucial statistical test showed that Vioxx caused heart problems only after 18 months of continuous use.
+
+Answer:
+negative
+
+News Input:
+
+Profit Falls as Sales Rise at Verizon
+Verizon said its profit dipped as it absorbed the costs of integrating MCI and building a fiber optic network designed to deliver television to homes.
+
+Answer:
+negative
+
+
+Now, analyze this new input:
+
+{headline}
+{snippet}
+
+Answer:

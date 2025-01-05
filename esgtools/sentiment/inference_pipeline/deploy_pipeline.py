@@ -1,11 +1,10 @@
 import boto3
-import sagemaker
-from sagemaker_pipeline import create_pipeline
+
+from esgtools.sentiment.inference_pipeline.sagemaker_pipeline import create_pipeline
 
 
 def deploy():
     """Deploy the SageMaker pipeline."""
-    session = sagemaker.Session()
 
     # Get role ARN using boto3 (uses existing credentials)
     iam = boto3.client("iam")
