@@ -6,6 +6,7 @@ install:
 		pip install -r lambda_requirements.txt &&\
 		pip install -r dev_requirements.txt &&\
 		pip install -r tests/test_requirements.txt &&\
+		pip install -r esgtools/sentiment/inference_pipeline/requirements.txt &&\
 		pip install -e . --use-pep517
 
 update-conda-env:
