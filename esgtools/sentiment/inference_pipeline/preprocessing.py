@@ -61,7 +61,7 @@ def register_model(config: ModelConfig, sql: sql_manager.ManagerSQL) -> str:
             "base_model": existing_row["base_model"],
             "base_version": existing_row["base_version"],
             "variant_version": existing_row["variant_version"],
-            "hyperparameters": json.dumps(existing_row["hyperparameters"]),
+            "hyperparameters": existing_row["hyperparameters"],
             "prompt_template": existing_row["prompt_template"],
             "training_status": existing_row["training_status"],
             "description": existing_row["description"],
@@ -70,24 +70,31 @@ def register_model(config: ModelConfig, sql: sql_manager.ManagerSQL) -> str:
             "base_model": config.base_model,
             "base_version": config.base_version,
             "variant_version": config.variant_version,
-            "hyperparameters": json.dumps(config.hyperparameters),
+            "hyperparameters": config.hyperparameters,
             "prompt_template": config.prompt_template,
             "training_status": config.training_status,
             "description": config.description,
         }
 
-        if existing_config == new_config:
+        # Function to sort dictionary values
+        def sort_dict_values(d):
+            return {k: sorted(v.items()) if isinstance(v, dict) else v for k, v in d.items()}
+
+        existing_config_sorted = sort_dict_values(existing_config)
+        new_config_sorted = sort_dict_values(new_config)
+
+        if existing_config_sorted == new_config_sorted:
             # Configurations match, do nothing
             return model_id
 
         # Log the differences between existing_config and new_config
-        for key, value in existing_config.items():
-            if value != new_config[key]:
+        for key, value in existing_config_sorted.items():
+            if value != new_config_sorted[key]:
                 logger.error(
                     "Configuration mismatch for %s: existing=%s, new=%s",
                     key,
                     value,
-                    new_config[key],
+                    new_config_sorted[key],
                 )
 
         # Configurations do not match, raise an error
@@ -165,7 +172,7 @@ def fetch_and_prepare_data():
         # Fetch data
         year_month = "200605"
         query = f"""
-        SELECT headline, snippet 
+        SELECT web_url, headline, snippet 
         FROM nyt_archive 
         WHERE year_month = '{year_month}'
         """
@@ -173,7 +180,7 @@ def fetch_and_prepare_data():
         nyt_data = nyt_data.head()
         logger.info("Retrieved %d records from database", len(nyt_data))
 
-        inference_data = nyt_data[["headline", "snippet"]]
+        inference_data = nyt_data[["web_url", "headline", "snippet"]]
 
         # Save to output
         output_path = os.path.join("/opt/ml/processing/output", "data.jsonl")

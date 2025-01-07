@@ -3,6 +3,7 @@ import logging
 import os
 import re
 from ast import literal_eval
+from datetime import datetime
 
 import pandas as pd
 import torch
@@ -10,7 +11,7 @@ from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from esgtools.domain_models.io import convert_dict_to_sql_params
-from esgtools.sentiment.inference_pipeline.preprocessing import generate_model_id
+from esgtools.sentiment.inference_pipeline.preprocessing import generate_model_id, load_config
 from esgtools.utils import aws, sql_manager
 
 # Set up logging
@@ -71,47 +72,62 @@ class HuggingFaceLoader:
             logger.info("Model is on device: %s", next(self.model.parameters()).device)
 
 
-# Create a single instance
+class ModelHyperparameters:
+    def __init__(self):
+        self.config = None
+        self.model_id = None
+        self.hyperparameters = None
+
+    def load_hyperparameters(self):
+        if self.config is None:
+            self.config = load_config()
+            logger.info("Config = %s", self.config)
+
+        if self.model_id is None:
+            self.model_id = generate_model_id(
+                self.config["model"]["base_model"],
+                self.config["model"]["base_version"],
+                self.config["model"]["variant_version"],
+            )
+            logger.info("Model_id = %s", self.model_id)
+
+        if self.hyperparameters is None:
+            self.hyperparameters = self.config["model"]["hyperparameters"]
+            logger.info("Hyperparameters = %s", self.hyperparameters)
+
+
+# Create a single instance of config classes
 hf_loader = HuggingFaceLoader()
+model_hyper = ModelHyperparameters()
 
 
-def save_sentiment_results(
-    results_df: pd.DataFrame, original_df: pd.DataFrame, model_id: str, sql: sql_manager.ManagerSQL
-):
+def save_sentiment_results(results_df: pd.DataFrame, model_id: str, sql: sql_manager.ManagerSQL):
     """
     Save sentiment analysis results to the nyt_sentiment_inference table.
 
     Args:
         results_df (pd.DataFrame): DataFrame containing sentiment analysis results
-        original_df (pd.DataFrame): Original DataFrame containing web_url and other fields
         model_id (str): ID of the model used for inference
         sql (sql_manager.ManagerSQL): Database connection object
     """
     logger.info("Preparing to save sentiment results for model %s", model_id)
 
-    # Merge results with original data to get web_url
-    merged_df = pd.merge(
-        results_df,
-        original_df[["headline", "snippet", "web_url"]],
-        left_on=["headline", "snippet"],
-        right_on=["headline", "snippet"],
-        how="inner",
-    )
-
     # Prepare data for database insertion
     db_records = []
-    for _, row in merged_df.iterrows():
+    now = datetime.now()
+    for _, row in results_df.iterrows():
         record = {
             "web_url": row["web_url"],
             "model_id": model_id,
             "text_output": row["output"],
             "sentiment": row["sentiment"],
             "sentiment_score": None,  # Can be updated later when implementing scoring
-            "additional_outputs": {
-                "retries": row["retries"],
-                "headline": row["headline"],
-                "snippet": row["snippet"],
-            },
+            "additional_outputs": json.dumps(
+                {
+                    "retries": row["retries"],
+                }
+            ),
+            "lud": now,
         }
         db_records.append(record)
 
@@ -129,7 +145,7 @@ def save_sentiment_results(
 
 
 def remove_non_letters_except_spaces(input_string):
-    return re.sub(r"[^a-zA-Z\s]", "", input_string)
+    return re.sub(r"[^a-zA-Z\s]", "", input_string).strip()
 
 
 def create_prompt(headline, snippet):
@@ -143,7 +159,8 @@ def run_sentiment_analysis(nyt_df, model, tokenizer):
     Run sentiment analysis on the entire DataFrame with output validation.
 
     Args:
-        nyt_df (pd.DataFrame): Input DataFrame containing 'headline' and 'snippet' columns
+        nyt_df (pd.DataFrame): Input DataFrame containing 'headline',
+                               'snippet', and 'web_url' columns
         model: The loaded LLaMA model
         tokenizer: The loaded tokenizer
 
@@ -164,6 +181,11 @@ def run_sentiment_analysis(nyt_df, model, tokenizer):
     results = []
 
     try:
+        model_hyper.load_hyperparameters()
+        max_new_tokens = model_hyper.hyperparameters.get("max_new_tokens", 4)
+        do_sample = model_hyper.hyperparameters.get("do_sample", True)
+        num_return_sequences = model_hyper.hyperparameters.get("num_return_sequences", 1)
+
         # Process each article with progress bar
         for idx, row in tqdm(nyt_df.iterrows(), total=len(nyt_df), desc="Processing articles"):
             sentiment = None
@@ -179,9 +201,9 @@ def run_sentiment_analysis(nyt_df, model, tokenizer):
                 with torch.no_grad():
                     output = model.generate(
                         **inputs,
-                        max_new_tokens=4,
-                        do_sample=True,
-                        num_return_sequences=1,
+                        max_new_tokens=max_new_tokens,
+                        do_sample=do_sample,
+                        num_return_sequences=num_return_sequences,
                         pad_token_id=tokenizer.eos_token_id,
                         eos_token_id=tokenizer.eos_token_id,
                     )
@@ -229,9 +251,7 @@ def run_sentiment_analysis(nyt_df, model, tokenizer):
 
             results.append(
                 {
-                    "id": idx,
-                    "headline": row["headline"],
-                    "snippet": row["snippet"],
+                    "web_url": row["web_url"],
                     "output": original_response,
                     "sentiment": sentiment,
                     "retries": retries,
@@ -262,15 +282,8 @@ def run_sentiment_analysis(nyt_df, model, tokenizer):
         )
         sql = sql_manager.ManagerSQL(sql_params)
 
-        # Generate model ID using the existing function
-        model_id = generate_model_id(
-            os.environ.get("BASE_MODEL", "LLAMA2"),
-            os.environ.get("BASE_VERSION", "3.1-8B"),
-            os.environ.get("VARIANT_VERSION", "INSTRUCT"),
-        )
-
         # Save results to database
-        save_sentiment_results(results_df, nyt_df, model_id, sql)
+        save_sentiment_results(results_df, model_hyper.model_id, sql)
 
     except Exception as e:
         logger.error("Error in database operations: %s", str(e))

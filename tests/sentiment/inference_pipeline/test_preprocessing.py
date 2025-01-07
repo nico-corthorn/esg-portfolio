@@ -84,6 +84,7 @@ def test_register_model_unit_test():
 
     expected_model_id = "LLAMA2-7B-001"
 
+    # Register model
     actual_model_id = register_model(config, mock_sql)
 
     # Assert the model_id is correct
@@ -95,12 +96,22 @@ def test_register_model_unit_test():
 def test_register_model_integration(sql):
     """Test actual model registration in database"""
     # Mock S3 responses for config loading
-    mock_config = {
+    mock_config_1 = {
         "model": {
             "base_model": "TESTMODEL",
             "base_version": "0B",
             "variant_version": "TEST",
-            "hyperparameters": {"temperature": 0.7},
+            "hyperparameters": {"temperature": 0.7, "max_tokens": 2, "top_p": 0.9},
+            "prompt_template_file": "sentiment/config/prompt_template.txt",
+            "description": "Test model",
+        }
+    }
+    mock_config_2 = {
+        "model": {
+            "base_model": "TESTMODEL",
+            "base_version": "0B",
+            "variant_version": "TEST",
+            "hyperparameters": {"max_tokens": 2, "top_p": 0.9, "temperature": 0.7},
             "prompt_template_file": "sentiment/config/prompt_template.txt",
             "description": "Test model",
         }
@@ -108,20 +119,38 @@ def test_register_model_integration(sql):
 
     mock_prompt = "Test prompt template {headline} {snippet}"
 
+    # Register model once
     with patch("esgtools.utils.aws.get_s3_file") as mock_get_s3_file:
-        mock_get_s3_file.side_effect = [json.dumps(mock_config), mock_prompt]
+        mock_get_s3_file.side_effect = [json.dumps(mock_config_1), mock_prompt]
 
         config = ModelConfig(
-            base_model=mock_config["model"]["base_model"],
-            base_version=mock_config["model"]["base_version"],
-            variant_version=mock_config["model"]["variant_version"],
-            hyperparameters=mock_config["model"]["hyperparameters"],
+            base_model=mock_config_1["model"]["base_model"],
+            base_version=mock_config_1["model"]["base_version"],
+            variant_version=mock_config_1["model"]["variant_version"],
+            hyperparameters=mock_config_1["model"]["hyperparameters"],
             prompt_template=mock_prompt,
             training_status="base",
-            description=mock_config["model"]["description"],
+            description=mock_config_1["model"]["description"],
         )
 
         # Register model
+        model_id = register_model(config, sql)
+
+    # Register model again with different hyperparameters that should be equivalent
+    with patch("esgtools.utils.aws.get_s3_file") as mock_get_s3_file:
+        mock_get_s3_file.side_effect = [json.dumps(mock_config_2), mock_prompt]
+
+        config = ModelConfig(
+            base_model=mock_config_2["model"]["base_model"],
+            base_version=mock_config_2["model"]["base_version"],
+            variant_version=mock_config_2["model"]["variant_version"],
+            hyperparameters=mock_config_2["model"]["hyperparameters"],
+            prompt_template=mock_prompt,
+            training_status="base",
+            description=mock_config_2["model"]["description"],
+        )
+
+        # Register model again
         model_id = register_model(config, sql)
 
         # Verify model was registered
@@ -141,7 +170,7 @@ def test_register_model_integration(sql):
         assert row["base_model"] == config.base_model
         assert row["base_version"] == config.base_version
         assert row["variant_version"] == config.variant_version
-        assert json.dumps(row["hyperparameters"]) == json.dumps(config.hyperparameters)
+        assert sorted(row["hyperparameters"].items()) == sorted(config.hyperparameters.items())
         assert row["prompt_template"] == config.prompt_template
         assert row["training_status"] == config.training_status
         assert row["description"] == config.description
