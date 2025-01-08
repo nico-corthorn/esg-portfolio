@@ -146,7 +146,7 @@ db/data/
 db/viewer.ipynb
 
 # WRDS solutions
-esgtools/wrds
+tba_invest_etl/wrds
 
 # Package duplicates
-esgtools/sentiment/inference_pipeline/esgtools
+tba_invest_etl/sentiment/inference_pipeline/tba_invest_etl

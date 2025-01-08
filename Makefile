@@ -1,12 +1,12 @@
 AWS_REGION := $(shell aws configure get region)
 SAGEMAKER_BUCKET := $(shell aws sts get-caller-identity --query 'Account' --output text | xargs -I {} echo "sagemaker-$(AWS_REGION)-{}")
+AWS_ACCOUNT_ID := $(shell aws sts get-caller-identity --query 'Account' --output text)
 
 install:
 	python -m pip install --upgrade pip &&\
 		pip install -r lambda_requirements.txt &&\
 		pip install -r dev_requirements.txt &&\
 		pip install -r tests/test_requirements.txt &&\
-		pip install -r esgtools/sentiment/inference_pipeline/requirements.txt &&\
 		pip install -e . --use-pep517
 
 update-conda-env:
@@ -18,20 +18,33 @@ update-conda-env:
 	make install
 
 format:
-	black esgtools tests
-	isort esgtools tests
+	black tba_invest_etl tests
+	isort tba_invest_etl tests
 
 lint:
-	pylint esgtools tests --rcfile=.pylintrc
-	black --check --diff esgtools tests
-	isort --check-only esgtools tests
+	pylint tba_invest_etl tests --rcfile=.pylintrc
+	black --check --diff tba_invest_etl tests
+	isort --check-only tba_invest_etl tests
 
 test:
 	python -m pytest -v
 
 pre_pr: format lint test
 
-build:
+build-package:
+	@echo "Building tba_invest_etl package..."
+	rm -rf dist
+	mkdir -p dist
+	python setup.py sdist
+	mv dist/*.tar.gz dist/tba_invest_etl.tar.gz
+
+publish-package:
+	@echo "Publishing package to AWS CodeArtifact..."
+	python -m pip install --upgrade twine
+	aws codeartifact login --tool twine --domain tba-investments --domain-owner $(AWS_ACCOUNT_ID) --repository tba-investments-etl
+	python -m twine upload --repository codeartifact dist/*
+
+build-sam:
 	@echo "Cleaning previous build..."
 	rm -rf .aws-sam/build
 
@@ -57,7 +70,7 @@ deploy-local:
 	@echo "Deploying from local samconfig file..."
 	sam deploy --config-file samconfig.toml
 
-deploy:
+deploy-sam:
 	@echo "Deploying..."
 	sam deploy \
 		--stack-name sam-app \
@@ -68,31 +81,3 @@ deploy:
 		--no-confirm-changeset \
 		--no-fail-on-empty-changeset \
 		--disable-rollback false
-
-build-esgtools-package:
-	@echo "Building esgtools package..."
-	rm -rf dist
-	mkdir -p dist
-	python setup.py sdist
-	mv dist/*.tar.gz dist/esgtools.tar.gz
-
-upload-sentiment-code: build-esgtools-package
-	aws s3 cp ./esgtools/sentiment/inference_pipeline/preprocessing.py s3://$(SAGEMAKER_BUCKET)/sentiment/code/
-	aws s3 cp ./esgtools/sentiment/inference_pipeline/inference.py s3://$(SAGEMAKER_BUCKET)/sentiment/code/
-	aws s3 cp ./esgtools/sentiment/inference_pipeline/serve s3://$(SAGEMAKER_BUCKET)/sentiment/code/
-	aws s3 cp ./esgtools/sentiment/inference_pipeline/model_config.json s3://$(SAGEMAKER_BUCKET)/sentiment/config/
-	aws s3 cp ./esgtools/sentiment/inference_pipeline/prompt_template.txt s3://$(SAGEMAKER_BUCKET)/sentiment/config/
-	aws s3 cp ./dist/esgtools.tar.gz s3://$(SAGEMAKER_BUCKET)/sentiment/packages/
-
-free-docker-memory:
-	docker system prune -f
-	docker image prune -a
-	docker volume prune -f
-
-push-sentiment-container:
-	chmod +x ./esgtools/sentiment/inference_pipeline/build_and_push.sh
-	./esgtools/sentiment/inference_pipeline/build_and_push.sh
-
-deploy-sentiment-pipeline:
-	make upload-sentiment-code
-	python ./esgtools/sentiment/inference_pipeline/deploy_pipeline.py

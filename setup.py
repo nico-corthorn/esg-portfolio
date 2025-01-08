@@ -5,10 +5,10 @@ def read_requirements(filename):
         return [line.strip() for line in f if line.strip() and not line.startswith('#')]
 
 setup(
-    name="esgtools",
+    name="tba_invest_etl",
     version="0.0.1",
-    packages=find_packages(include=['esgtools*']),  # Explicitly include all esgtools subpackages
-    package_data={'esgtools': ['**/*']},  # Include all files in the package
+    packages=find_packages(include=['tba_invest_etl*']),  # Explicitly include all tba_invest_etl subpackages
+    package_data={'tba_invest_etl': ['**/*']},  # Include all files in the package
     include_package_data=True,
     install_requires=read_requirements('lambda_requirements.txt'),
 )

@@ -3,8 +3,8 @@ import json
 import pandas as pd
 import pytest
 
-from esgtools.alpha import api, table
-from esgtools.domain_models.io import SQLParams
+from tba_invest_etl.alpha import api, table
+from tba_invest_etl.domain_models.io import SQLParams
 
 
 @pytest.mark.parametrize("scenario", [1, 2, 3, 4, 5, 6])

@@ -38,15 +38,22 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-2
+    - name: Configure AWS CodeArtifact
+      run: |
+        aws codeartifact login --tool twine --domain your-domain --domain-owner $(aws sts get-caller-identity --query 'Account' --output text) --repository your-repository
+    - name: Build package
+      run: make build-package
+    - name: Publish package
+      run: make publish-package
     - name: SAM build
       if: success()
       env:
         AWS_SAM_STACK_NAME: ${{ secrets.AWS_SAM_STACK_NAME }}
       run: |
-        make build
+        make build-sam
     - name: SAM deploy
       if: success()
       env:
         AWS_SAM_STACK_NAME: ${{ secrets.AWS_SAM_STACK_NAME }}
       run: |
-        make deploy
+        make deploy-sam

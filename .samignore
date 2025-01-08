@@ -3,4 +3,4 @@
 **/.pytest_cache
 **/.ipynb_checkpoints
 tests/
-esgtools/db/notebooks
+tba_invest_etl/db/notebooks
