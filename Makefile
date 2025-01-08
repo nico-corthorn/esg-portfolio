@@ -41,7 +41,7 @@ build-package:
 publish-package:
 	@echo "Publishing package to AWS CodeArtifact..."
 	python -m pip install --upgrade twine
-	aws codeartifact login --tool twine --domain tba-investments --domain-owner $(AWS_ACCOUNT_ID) --repository tba-investments-etl
+	aws codeartifact login --tool twine --domain tba-investments --domain-owner $(AWS_ACCOUNT_ID) --repository tba-investments-etl --region $(AWS_REGION)
 	python -m twine upload --repository codeartifact dist/*
 
 build-sam:
