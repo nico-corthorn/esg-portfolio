@@ -40,7 +40,7 @@ jobs:
         aws-region: us-east-2
     - name: Configure AWS CodeArtifact
       run: |
-        aws codeartifact login --tool twine --domain your-domain --domain-owner $(aws sts get-caller-identity --query 'Account' --output text) --repository your-repository
+        aws codeartifact login --tool twine --domain tba-investments --domain-owner $(aws sts get-caller-identity --query 'Account' --output text) --repository tba-investments-etl
     - name: Build package
       run: make build-package
     - name: Publish package
