@@ -1,5 +1,4 @@
-AWS_REGION := $(shell aws configure get region)
-SAGEMAKER_BUCKET := $(shell aws sts get-caller-identity --query 'Account' --output text | xargs -I {} echo "sagemaker-$(AWS_REGION)-{}")
+AWS_REGION := $(shell aws configure get region || echo "us-east-2")
 AWS_ACCOUNT_ID := $(shell aws sts get-caller-identity --query 'Account' --output text)
 
 install:
